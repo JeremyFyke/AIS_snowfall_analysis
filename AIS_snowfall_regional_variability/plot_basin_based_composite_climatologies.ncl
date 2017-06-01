@@ -1,7 +1,6 @@
-load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
-load "local_utilies.ncl"
-load "plotting_utilities.ncl"
-
+load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/composite_utilities.ncl"
+load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/general_utilities.ncl"
+load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utilities.ncl"
 begin   
 
    plot_AIS_SMB_spatial_fields=0
@@ -30,29 +29,30 @@ begin
    year2sec=31557600.
    wks_type=get_default_wks()   
    default_res = get_default_res()
-   AISMask = get_AIS_mask()
-   nAISMask = max(AISMask)
-   Area=get_LandArea() ;m^2
-   LandFrac = get_LandFrac()
-   LandArea = get_LandArea() 
    SD="./"
 
    ;Load CAM grid data
-   in:=addfile("jer_data_dir/CAM_base_data.nc","r")
+   in=addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/CAM_base_data.nc","r")
    P0=in->P0
    hyam=in->hyam
    hybm=in->hybm
    lev=in->lev
    lat=in->lat
    lon=in->lon 
+   AISMask = get_AIS_mask()
+   nAISMask = max(AISMask)
+   Area=get_LandArea() ;m^2
+   LandFrac = get_LandFrac()
+   LandArea = get_LandArea()
+   Topog = get_Topog()
    
    ;Load ice drainage boundary polygons
-   ZwallyBasinPolygonData=readAsciiTable("AIS_basin_masks/Ant_Full_DrainageSystem_Polygons.txt",3,"float",7)    
+   ZwallyBasinPolygonData=readAsciiTable("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/AIS_basin_masks/Ant_Full_DrainageSystem_Polygons.txt",3,"float",7)    
        
    ;;;Load RACMO AIS data
-   infile = addfile("AIS_basin_masks/AIS_Full_basins_Zwally_ANT27grid.nc","r")
+   infile = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/AIS_basin_masks/AIS_Full_basins_Zwally_ANT27grid.nc","r")
    AISMask_RACMO=infile->Zwallybasins
-   infile = addfile("jer_data_dir/smb_monthly_ANT27_ERAIN_r490_1979_2015.nc","r")
+   infile = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/smb_monthly_ANT27_ERAIN_r490_1979_2015.nc","r")
    PRECIP_annual_RACMO=month_to_annual(infile->smb,1)
    PRECIP_annual_RACMO=dtrend_n(PRECIP_annual_RACMO,False,0)
    PRECIP_climatology_RACMO=dim_avg_n(PRECIP_annual_RACMO,0)
@@ -61,9 +61,9 @@ begin
    
    ds_RACMO=dimsizes(PRECIP_annual_RACMO)
    nt_RACMO=ds_RACMO(0)
-   infile = addfile("jer_data_dir/maskers_RACMO2.nc","r")
+   infile = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/maskers_RACMO2.nc","r")
    LandFrac_RACMO=infile->mask2d
-   infile = addfile("jer_data_dir/gridarea_RACMO2.nc","r")
+   infile = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/gridarea_RACMO2.nc","r")
    LandArea_RACMO=infile->cell_area ;m^2  
    time_RACMO=fspan(1,nt_RACMO,nt_RACMO)
    Basin_integrated_TS_RACMO = new((/nt_RACMO,toint(nAISMask)/),"double")
@@ -103,7 +103,10 @@ begin
       RAIN_AIS_integrated=RAIN_AIS_integrated / 1.e9 ; integrated AIS PRECIP - m^3/yr -> kg/yr -> Gt/yr
 
       PRECIP_annual=SNOW_annual+RAIN_annual
+      PRECIP_annual@_FillValue=default_fillvalue(typeof(PRECIP_annual))
+      PRECIP_annual=where(PRECIP_annual.eq.0.,PRECIP_annual@_FillValue,PRECIP_annual)
       PRECIP_climatology=mask(dim_avg_n(PRECIP_annual,0),AISMaskBinary,1)
+      
       PRECIP_climatology=add_lev_lat_lon_arrays(PRECIP_climatology,lev,lat,lon)
       PRECIP_variability=mask(dim_stddev_n(PRECIP_annual,0),AISMaskBinary,1)
       PRECIP_variability=add_lev_lat_lon_arrays(PRECIP_variability,lev,lat,lon)
@@ -125,29 +128,29 @@ begin
       wks=gsn_open_wks(wks_type,"figs/AIS_mean_precip_map")
       cnLevels = array_append_record(fspan(0.0,0.3,31),fspan(0.4,1.2,9),0)
       AIS_climatology_plot = plot_precip_climatology(PRECIP_climatology,cnLevels,wks,1)
-      AIS_climatology_plot = plot_basin_polygons(ZwallyBasinPolygonData,AIS_climatology_plot,wks,nAISMask)
+      AIS_climatology_plot = plot_basin_polygons(ZwallyBasinPolygonData,AIS_climatology_plot,wks,nAISMask,-9999)
       draw (AIS_climatology_plot)
       frame(wks)      
 
       wks=gsn_open_wks(wks_type,"figs/AIS_std_precip_map")
       cnLevels := array_append_record(fspan(0.0,0.04,21),fspan(0.05,0.22,18),0)
       AIS_variability_plot = plot_precip_climatology(PRECIP_variability,cnLevels,wks,1)
-      AIS_variability_plot = plot_basin_polygons(ZwallyBasinPolygonData,AIS_variability_plot,wks,nAISMask)      
+      AIS_variability_plot = plot_basin_polygons(ZwallyBasinPolygonData,AIS_variability_plot,wks,nAISMask,-9999)      
       draw (AIS_variability_plot)
       frame(wks)
       
       wks=gsn_open_wks(wks_type,"figs/AIS_CV_map")
       cnLevels := fspan(0.1,0.37,37)      
       AIS_CV_plot = plot_precip_climatology(PRECIP_CV,cnLevels,wks,1)
-      AIS_CV_plot = plot_basin_polygons(ZwallyBasinPolygonData,AIS_CV_plot,wks,nAISMask)      
+      AIS_CV_plot = plot_basin_polygons(ZwallyBasinPolygonData,AIS_CV_plot,wks,nAISMask,-9999)      
       draw (AIS_CV_plot)
       frame(wks)
       
-      wks=gsn_open_wks(wks_type,"figs/AIS_CV_map_RACMO")
-      cnLevels := fspan(0.1,0.37,37)      
-      AIS_CV_plot = plot_precip_climatology(PRECIP_CV_RACMO,cnLevels,wks,0)     
-      draw (AIS_CV_plot)
-      frame(wks)            
+      ;wks=gsn_open_wks(wks_type,"figs/AIS_CV_map_RACMO")
+      ;cnLevels := fspan(0.1,0.37,37)      
+      ;AIS_CV_plot = plot_precip_climatology(PRECIP_CV_RACMO,cnLevels,wks,0)     
+      ;draw (AIS_CV_plot)
+      ;frame(wks)            
    end if
    
    ;Load CVDP diagnostics for CESM LE run
@@ -270,8 +273,61 @@ begin
        overlay(corr_mat_plot,significance_plot)
        draw(corr_mat_plot)
        frame(wks)       
-   end if   
-        
+   end if 
+   
+   if (plot_basin_overview.eq.1) then
+       wks = gsn_open_wks (wks_type,"figs/basin_overview")
+       ;Plot topography
+       Topog=add_lev_lat_lon_arrays(Topog,lev,lat,lon)
+       Topog@_FillValue=default_fillvalue(typeof(Topog))
+       ;Topog=where(Topog.gt.1,Topog,Topog@_FillValue)
+       Topog_plot=plot_field(Topog,0,4000,False,"rainbow",True,-60,wks)
+       Topog_plot=plot_basin_polygons(ZwallyBasinPolygonData,Topog_plot,wks,nAISMask,-9999)
+       ;Plot basin numbers
+       latAvg=new((/toint(nAISMask)/),"double")
+       lonAvg=new((/toint(nAISMask)/),"double") 
+       nCount=new((/toint(nAISMask)/),"integer")
+       latAvg(:)=0.0
+       lonAvg(:)=0.0
+       nCount(:)=0     
+       do i=1,dimsizes(lat)
+          do j=1,dimsizes(lon)
+	     im1=i-1
+	     jm1=j-1
+	     MaskVal=toint(AISMask(im1,jm1))-1
+	     if (MaskVal.ge.0) then
+		latAvg(MaskVal)=latAvg(MaskVal)+lat(im1)
+		lonAvg(MaskVal)=lonAvg(MaskVal)+lon(jm1)
+		nCount(MaskVal)=nCount(MaskVal)+1
+	     end if
+	  end do
+       end do
+       latAvg=latAvg/nCount
+       lonAvg=lonAvg/nCount
+       lonAvg=where(lonAvg.gt.180,lonAvg-360,lonAvg)
+       lonAvg(1)=-10.;Basin 2
+       latAvg(1)=-89.
+       lonAvg(2)=0.;Basin 3
+       latAvg(2)=-80.
+       lonAvg(4)=0.;Basin 5
+       latAvg(4)=-72.5
+       latAvg(17)=-82.5;Basin 18
+       latAvg(22)=-71.  ;Basin 23
+       lonAvg(23)=-69.   ;Basin 24
+       latAvg(23)=-71.   ;Basin 24       
+       lonAvg(24)=-71.   ;Basin 25
+       lonAvg(26)=-55   ;Basin 27                
+       txres = True                     ; text mods desired
+       txres@txFontHeightF = 0.015                     ; font smaller. default big
+       do b=1,nAISMask
+           bm1=b-1
+           dum=gsn_add_text(wks,Topog_plot,tostring(b),lonAvg(bm1),latAvg(bm1),txres)
+       end do
+       
+       draw(Topog_plot)
+       frame(wks)           
+   end if
+
    do b=1,nAISMask
       bm1=b-1
       
@@ -349,7 +405,8 @@ begin
       print("***Relationship between Z500 and SLP variability for basin "+b+"***")
       print("  regression coefficient: "+rc@r)
 
-      BasinMask=new(dimsizes(AISMask),"integer")      
+      BasinMask=new(dimsizes(AISMask),"integer")
+      BasinMask@_FillValue=default_fillvalue(typeof(BasinMask))
       BasinMask=where(AISMask.eq.b,1,0);set basinmask to one where basin equals 1
       BasinMask=add_lev_lat_lon_arrays(BasinMask,lev,lat,lon)
       out:=make_correlation_mask(AISMask,nAISMask,Xcor_basin_by_basin_CESM,time,bm1)
@@ -380,12 +437,15 @@ begin
       if(plot_dz500_plus_basin_correlation.eq.1) then
          wks = gsn_open_wks (wks_type,str_concat((/"figs/dz500_transport_plus_basin_correlation",sprinti("%0.2i", b)/)))
 	 correlation_plot=plot_basin_correlation(CorrMask_CESM,wks,1,-30)
-	 Z500_plot=plot_field(Z500_diff,-30,30,True,False,0,wks)
+	 correlation_plot=plot_basin_polygons(ZwallyBasinPolygonData,correlation_plot,wks,nAISMask,b)
+	 ;range=max((/abs(min(Z500_diff)),abs(max(Z500_diff))/))
+	 range=30.
+	 Z500_plot=plot_field(Z500_diff,-range,range,True,(/"blue","black","red"/),False,0,wks)
 	 significance_plot=plot_significance(Z500_alpha,wks)
-	 basin_plot=plot_basin(BasinMask,wks)
+	 ;basin_plot=plot_basin(BasinMask,wks)
 	 overlay(correlation_plot,Z500_plot)
 	 overlay (correlation_plot,significance_plot)	 
-	 overlay (correlation_plot,basin_plot)	 
+	 ;overlay (correlation_plot,basin_plot)	 
 	 draw(correlation_plot)
 	 frame(wks)	    
       end if
@@ -393,23 +453,27 @@ begin
       if(plot_dMoisture_plus_basin_correlation.eq.1) then
          wks = gsn_open_wks (wks_type,str_concat((/"figs/dMoisture_transport_plus_basin_correlation",sprinti("%0.2i", b)/)))
 	 correlation_plot=plot_basin_correlation(CorrMask_CESM,wks,1,-60)
+	 correlation_plot=plot_basin_polygons(ZwallyBasinPolygonData,correlation_plot,wks,nAISMask,b)
 	 moisture_plot=plot_vector_field(UQ_VERT_INTEGRAL_diff,VQ_VERT_INTEGRAL_diff,wks)
 	 significance_plot = plot_significance(RtestMask_CESM,wks)	 	 
 	 basin_plot=plot_basin(BasinMask,wks)
 	 overlay(correlation_plot,moisture_plot)
 	 overlay (correlation_plot,significance_plot)
-	 overlay (correlation_plot,basin_plot)	 
+	 ;overlay (correlation_plot,basin_plot)	 
 	 draw(correlation_plot)
 	 frame(wks)	    
       end if
       
       if(plot_dMoisture_plus_PE.eq.1) then
          wks = gsn_open_wks (wks_type,str_concat((/"figs/dMoisture_dSIC_dPE",sprinti("%0.2i", b)/)))
+	 correlation_plot=plot_basin_correlation(CorrMask_CESM,wks,0,-30)
+	 ;correlation_plot=plot_basin_polygons(ZwallyBasinPolygonData,correlation_plot,wks,nAISMask,b)
 	 dSIC_plot=plot_SIC(SIC_diff,wks,-55)
-         PE_plot=plot_field(PE_diff,-10.,10.,True,False,0,wks)
-	 moisture_plot=plot_vector_field(UQ_VERT_INTEGRAL_diff,VQ_VERT_INTEGRAL_diff,wks)
+         PE_plot=plot_field(PE_diff,-10.,10.,True,(/"navajowhite4","black","blue2"/),False,0,wks)
+	 ;moisture_plot=plot_vector_field(UQ_VERT_INTEGRAL_diff,VQ_VERT_INTEGRAL_diff,wks)
 	 basin_plot=plot_basin(BasinMask,wks)
-	 overlay (dSIC_plot,moisture_plot)
+	 ;overlay (dSIC_plot,moisture_plot)
+	 overlay (dSIC_plot,correlation_plot)	 
 	 overlay (dSIC_plot,PE_plot)
 	 overlay (dSIC_plot,basin_plot)	 	 
 	 draw(dSIC_plot)

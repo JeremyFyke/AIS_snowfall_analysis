@@ -61,6 +61,15 @@ function LoadMonthlyData(Var,Files)
       return arrayOut
    end
 
+function LoadMonthlyData_LENS1(Var,Files)
+  begin
+     in = addfiles(systemfunc(Files),"r")
+     print("Loading "+Var+"...")      
+     tmp=in[:]->$Var$
+     arrayOut = tmp(70*12::,:,:) 
+     return arrayOut
+  end
+
 procedure save_timeseries(TS,fname)  
    local ncdf,fAtt
    begin

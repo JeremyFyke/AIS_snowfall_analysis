@@ -38,7 +38,7 @@ function get_default_res()
 ;;;     
 function get_AIS_mask()
    begin
-      fAISMask = addfile("/glade/u/home/jfyke/liwg/AIS_snowfall_analysis/fyke_analysis/AIS_basin_masks/AIS_Full_basins_Zwally_CESMgrid.nc","r")
+      fAISMask = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/AIS_basin_masks/AIS_Full_basins_Zwally_CESMgrid.nc","r")
       AISMask = fAISMask->Zwallybasins
       return AISMask
    end
@@ -57,6 +57,13 @@ function get_LandArea()
       return LandArea
    end
 ;;;
+function get_Topog()
+   begin
+      in = addfile("/glade/p/cesmLE/CESM-CAM5-BGC-LE/atm/proc/tseries/monthly/PHIS/b.e11.B1850C5CN.f09_g16.005.cam.h0.PHIS.040001-049912.nc","r")
+      Topog = dim_avg_n(rm_single_dims(in->PHIS),0)   /9.81;->m
+      return Topog
+   end
+
 function add_lev_lat_lon_arrays(field,lev,lat,lon)
 begin
    rank=dimsizes(dimsizes(field))
@@ -170,7 +177,7 @@ function composite_PAGES_data(climate_lat_vec,climate_lon_vec,AISMask,nAISMask)
 local names,tmp
 begin
    ;;;Read ice core data;;;
-   SD="/glade/u/home/jfyke/liwg/AIS_snowfall_analysis/fyke_analysis/jer_data_dir/PAGES_data/"
+   SD="/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/PAGES_data/"
    names = asciiread(str_concat((/SD,"names.txt"/)),-1,"string")
    ; geo data
    tmp = asciiread(str_concat((/SD,"lat_lon_elev.txt"/)),(/80,3/),"double")
@@ -414,8 +421,8 @@ function make_correlation_mask(AISMask,nAISMask,Xcor,time,bm1)
       in=addfile(str_concat((/"/glade2/scratch2/hailong/forJeremy/",Composite,"_moisture_fluxes_",sprinti("%0.2i",b),".nc"/)),"r")
       UQ         =rm_single_dims(in->Ann_column_UQ)
       VQ         =rm_single_dims(in->Ann_column_VQ)
-      CONVERGENCE=rm_single_dims(in->Ann_convergence);/1.e6 ;mg/m2/s to kg/m2/s
-      PE         =rm_single_dims(in->$"Ann_P-E"$);/1.e6 ;mg/m2/s to kg/m2/s
+      CONVERGENCE=rm_single_dims(in->Ann_convergence);mg/m2/s
+      PE         =rm_single_dims(in->$"Ann_P-E"$);mg/m2/s
       UQ:=add_lev_lat_lon_arrays(UQ,lev,lat,lon)
       VQ:=add_lev_lat_lon_arrays(VQ,lev,lat,lon)
       CONVERGENCE:=add_lev_lat_lon_arrays(CONVERGENCE,lev,lat,lon)      

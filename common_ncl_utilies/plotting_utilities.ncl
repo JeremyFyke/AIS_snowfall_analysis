@@ -2,14 +2,17 @@
    function plot_basin_correlation(CorrMask,wks,isPolar,mpMaxLatF)
       begin
       	 res = get_default_res()  
-	 res@mpMaxLatF            = mpMaxLatF
 	 res@gsnPolar             = "SH"
-	 res@mpMaxLatF            = mpMaxLatF
+	 res@mpMaxLatF            = mpMaxLatF	 
+	 res@cnMinLevelValF      = -.5	       ; set min contour level
+	 res@cnMaxLevelValF      = .5	       ; set max contour level
+	 res@cnLevelSpacingF     = 0.05	     ; set contour spacing
 	 res@cnFillOn             = True
 	 res@cnLinesOn  	 = False       ; do not draw contour lines
 	 res@cnFillMode	    = "RasterFill"     ; Turn on raster color 
-	 res@cnFillPalette     = "MPL_bwr"     ; set color map  
-	 symMinMaxPlt (CorrMask,100,False,res)
+	 res@cnFillPalette     = "MPL_bwr"     ; set color map
+	 res@lbBoxEndCapStyle = "TriangleBothEnds"
+	 ;symMinMaxPlt (CorrMask,100,False,res)
 	 if (isPolar.eq.1) then
 	    correlation_plot = gsn_csm_contour_map_polar(wks,CorrMask,res)
 	 else
@@ -44,15 +47,17 @@
 	 res@cnMaxLevelValF      = 1.00	     ; set max contour level
 	 res@cnLevelSpacingF     = 0.05	     ; set contour spacing
 	 res@cnLinesOn	         = False       ; do not draw contour lines
-	 res@cnLineLabelsOn      = False     ; do not draw contour labels	 
-	 res@cnFillScaleF        = 0.4	     ; add extra density 
+	 res@cnLineLabelsOn      = False     ; do not draw contour labels
+	 ;res@cnFillPattern      = 14	 
+	 ;res@cnFillScaleF        = 0.1	     ; add extra density GMT_drywet
 	 significance_plot = gsn_csm_contour(wks,SigField,res)
 	
 	 opt		          = True	
 	 opt@gsnShadeFillMode     = "RasterFill"  ; Turn on raster fill     
 	 opt@gsnShadeFillType     = "pattern"
 	 opt@gsnShadeFillScales   = 1.0
-	 opt@gsnShadeLow	  = 17 
+	 opt@gsnShadeLow	  = 16
+	 opt@gsnShadeDotSizeF     = 10
 	 significance_plot = gsn_contour_shade(significance_plot, 0.05, 30., opt)  ; shade all areas >95%
          return significance_plot
       end
@@ -79,30 +84,31 @@
 	    return basin_plot    
          end
 	
-      function plot_basin_polygons(ZwallyBasinPolygonData,plot,wks,nAISMask)
+      function plot_basin_polygons(ZwallyBasinPolygonData,plot,wks,nAISMask,highLightBasin)
 	 begin
 	    res = get_default_res()
 	    ZwallyBasinPolygonLats=ZwallyBasinPolygonData(:,0)
 	    ZwallyBasinPolygonLons=ZwallyBasinPolygonData(:,1)
 	    ZwallyBasinPolygonInds=toint(ZwallyBasinPolygonData(:,2))
-	    res@gsnPolar             = "SH"
-	    res@mpMaxLatF            = -60
-	    res@mpFillOn = False
-	    ;basin_polygon_plot=gsn_csm_map_polar(wks,res)
-	    res_poly             = True
-	    res_poly@gsEdgesOn   = True       ; draw border around polygons
-	    res_poly@gsEdgeColor = "black"
-	    res_poly@gsFillColor = "white"
-	    res_poly@gsFillOpacityF = 0.0
-	    res_poly@gsEdgeThicknessF = 10
 	    a=new(toint(nAISMask),graphic)
 	    do b=1,nAISMask
+	       bm1=b-1
+	       res_poly             = True
+	       res_poly@gsEdgesOn   = True       ; draw border around polygons
+	       res_poly@gsEdgeColor = "black"
+	       res_poly@gsFillColor = "white"
+	       res_poly@gsFillOpacityF = 0.0
+	       res_poly@gsEdgeThicknessF = 20
+	       if (b.eq.highLightBasin) then
+	          res_poly@gsFillColor = "green"
+	          res_poly@gsFillOpacityF = 1.0
+	       end if
 	       PolyInds=ind(ZwallyBasinPolygonInds.eq.b)
 	       a(b-1)=gsn_add_polygon(wks,plot,\
 	        	   ZwallyBasinPolygonLons(PolyInds),\
 	        	   ZwallyBasinPolygonLats(PolyInds),\
 			   res_poly)
-	       delete(PolyInds)
+	       delete(PolyInds)	       
             end do
 	    plot@a=a ;even though this isn't explicitly used, it needs to be retained.  Weird.         
 	    return plot
@@ -221,25 +227,27 @@
 	    return dSLP_plot
 	 end
 	 
-      function plot_field(field,minval,maxval,lineContours,isPolar,mpMaxLatF,wks)
+      function plot_field(field,minval,maxval,lineContours,Colors,isPolar,mpMaxLatF,wks)
          begin	    
             res = get_default_res() 
 	    res@cnMinLevelValF       = minval              ; set min contour level
 	    res@cnMaxLevelValF       = maxval              ; set max contour level
 	    res@cnLevelSpacingF      = (maxval-minval)/20    ; set contour spacing
 	    res@cnLineLabelsOn    = False
+	    res@cnFillDrawOrder = "PostDraw"
 	    if (lineContours) then
 	       res@cnLinesOn = True
 	       res@cnFillOn = False
-	       res@cnLineThicknessF = 12
+	       res@cnLineThicknessF = 15
 	    else
 	       res@cnLinesOn = False
 	       res@cnFillOn = True
+	       res@cnFillPalette = Colors
 	    end if
 	   
 	    res@txFontHeightF     = 0.015
-	    res@mpOutlineOn = True
-	    res@mpGeophysicalLineThicknessF = 6
+	    res@mpOutlineOn = False
+	    ;res@mpGeophysicalLineThicknessF = 6
 	    if (isPolar) then
 	       res@gsnPolar            = "SH" 
 	       res@mpMinLatF=-90
@@ -249,11 +257,13 @@
 	       plot=gsn_csm_contour(wks,field,res)
 	    end if 
 	    if (lineContours) then
-	       plot = ColorNegDashZeroPosContour(plot,"blue","green","red")
+	       plot = ColorNegDashZeroPosContour(plot,Colors(0),Colors(1),Colors(2)) ; if a linecontour, colors represent negative/0/positive contour colors
 	    end if
 	    
 	    return plot
 	  end
+
+
 	  
        function plot_SST_for_comparison(SST_diff,wks)
           begin	  
