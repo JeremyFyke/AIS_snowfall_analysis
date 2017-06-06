@@ -11,8 +11,8 @@ begin
    plot_dMoisture_dZ500_transport=0
    plot_non_annular_difference=0
    plot_dMoisture_plus_basin_correlation=0
-   plot_dz500_plus_basin_correlation=0
-   plot_dMoisture_plus_PE=1
+   plot_dz500_plus_basin_correlation=1
+   plot_dMoisture_plus_PE=0
    plot_evap_to_transport_ratio=0
    plot_spatial_correlation_CESM=0
    plot_matrix_of_CESM_interbasin_correlations=0
@@ -258,6 +258,7 @@ begin
        frame(wks)       
    end if
    
+   
    if (plot_matrix_of_PAGES_interbasin_correlations.eq.1) then
        Xcor_basin_by_basin_PAGES_copy=Xcor_basin_by_basin_PAGES
        Rtest_basin_by_basin_PAGES_copy=Rtest_basin_by_basin_PAGES
@@ -442,10 +443,8 @@ begin
 	 range=30.
 	 Z500_plot=plot_field(Z500_diff,-range,range,True,(/"blue","black","red"/),False,0,wks)
 	 significance_plot=plot_significance(Z500_alpha,wks)
-	 ;basin_plot=plot_basin(BasinMask,wks)
 	 overlay(correlation_plot,Z500_plot)
-	 overlay (correlation_plot,significance_plot)	 
-	 ;overlay (correlation_plot,basin_plot)	 
+	 overlay (correlation_plot,significance_plot) 
 	 draw(correlation_plot)
 	 frame(wks)	    
       end if
@@ -459,7 +458,6 @@ begin
 	 basin_plot=plot_basin(BasinMask,wks)
 	 overlay(correlation_plot,moisture_plot)
 	 overlay (correlation_plot,significance_plot)
-	 ;overlay (correlation_plot,basin_plot)	 
 	 draw(correlation_plot)
 	 frame(wks)	    
       end if
@@ -469,7 +467,7 @@ begin
 	 correlation_plot=plot_basin_correlation(CorrMask_CESM,wks,0,-30)
 	 ;correlation_plot=plot_basin_polygons(ZwallyBasinPolygonData,correlation_plot,wks,nAISMask,b)
 	 dSIC_plot=plot_SIC(SIC_diff,wks,-55)
-         PE_plot=plot_field(PE_diff,-10.,10.,True,(/"navajowhite4","black","blue2"/),False,0,wks)
+         PE_plot=plot_field(PE_diff,-10.,10.,True,(/"saddlebrown","transparent","darkgreen"/),False,0,wks)
 	 ;moisture_plot=plot_vector_field(UQ_VERT_INTEGRAL_diff,VQ_VERT_INTEGRAL_diff,wks)
 	 basin_plot=plot_basin(BasinMask,wks)
 	 ;overlay (dSIC_plot,moisture_plot)

@@ -48,6 +48,7 @@
 	 res@cnLevelSpacingF     = 0.05	     ; set contour spacing
 	 res@cnLinesOn	         = False       ; do not draw contour lines
 	 res@cnLineLabelsOn      = False     ; do not draw contour labels
+	 res@cnFillScaleF        =0.5
 	 ;res@cnFillPattern      = 14	 
 	 ;res@cnFillScaleF        = 0.1	     ; add extra density GMT_drywet
 	 significance_plot = gsn_csm_contour(wks,SigField,res)
