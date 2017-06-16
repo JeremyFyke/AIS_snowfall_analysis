@@ -10,6 +10,8 @@ plot_DJF_timeseries_difference=False
 plot_spatial_annual_snowfall=False
 plot_climatological_annual_cycle=True
 plot_precipitation_PDFs=False
+plot_snowfall_difference=False
+plot_DJF_climatology_difference=True
 
 NO3SD="/glade/p/umit0006/FESD/fixedO3/atm/proc/tseries/monthly/"
 O3SD="/glade/p/cesmLE/CESM-CAM5-BGC-LE/atm/proc/tseries/monthly/"
@@ -22,6 +24,10 @@ lon=in->lon
 
 nYearClimatology=50
 nMonthClimatology=nYearClimatology*12
+
+nYearFinalComparisonPeriod=15
+nMonthFinalComparisonPeriod=nYearFinalComparisonPeriod*12
+
 nYrO3=86
 iO3ClimMons=(nYrO3-nYearClimatology)*12
 iO3ClimMone=(nYrO3)*12-1
@@ -174,16 +180,15 @@ DJFEnsembleMeanStats(6,:)=dim_avg_n(DJFO3TS,1) - dim_avg_n(DJFNO3TS,1) ;snowfall
 DJFEnsembleMeanStats(7,:)=runave(DJFEnsembleMeanStats(6,:),5,0)
 
 ;Here, just calculate post-depletion climatologies.  I.e. 15==1991->2005
-nMonthsPostDepletion=15*12
 printVarSummary(MonthlyO3TS)
-print(nMonthClimatology-nMonthsPostDepletion)
+print(nMonthClimatology-nMonthFinalComparisonPeriod)
 
-MonthlyClimoEnsembleMeanStats= new((/6,12/),double)
-MonthlyClimo=rm_single_dims( clmMonTLL(reshape(MonthlyO3TS(nMonthClimatology-nMonthsPostDepletion:nMonthClimatology-1,:) , (/nMonthsPostDepletion,nLENS,1/))) )
+MonthlyClimoEnsembleMeanStats=new((/6,12/),double)
+MonthlyClimo=rm_single_dims( clmMonTLL(reshape(MonthlyO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nLENS,1/))) )
 MonthlyClimoEnsembleMeanStats(0,:)=dim_avg_n( MonthlyClimo , 1 )
 MonthlyClimoEnsembleMeanStats(1,:)=MonthlyClimoEnsembleMeanStats(0,:)-dim_stddev_n( MonthlyClimo , 1 )
 MonthlyClimoEnsembleMeanStats(2,:)=MonthlyClimoEnsembleMeanStats(0,:)+dim_stddev_n( MonthlyClimo , 1 )
-MonthlyClimo:=rm_single_dims( clmMonTLL(reshape(MonthlyNO3TS(nMonthClimatology-nMonthsPostDepletion:nMonthClimatology-1,:) , (/nMonthsPostDepletion,nNoOzoneEns,1/))) )
+MonthlyClimo:=rm_single_dims( clmMonTLL(reshape(MonthlyNO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nNoOzoneEns,1/))) )
 MonthlyClimoEnsembleMeanStats(3,:)=dim_avg_n( MonthlyClimo , 1 )
 MonthlyClimoEnsembleMeanStats(4,:)=MonthlyClimoEnsembleMeanStats(3,:)-dim_stddev_n( MonthlyClimo , 1 )
 MonthlyClimoEnsembleMeanStats(5,:)=MonthlyClimoEnsembleMeanStats(3,:)+dim_stddev_n( MonthlyClimo , 1 )
@@ -320,6 +325,12 @@ if (plot_DJF_timeseries_difference) then
    frame(wks)   
 end if
 
+if (plot_DJF_climatology_difference) then
+   wks = gsn_open_wks (wks_type,"figs/dclimate_DJF")
+   
+   
+end if
+
 if (plot_spatial_annual_snowfall) then
    ;Plot PRECIP_O3
    wks = gsn_open_wks (wks_type,"figs/PRECIP_O3")
@@ -432,3 +443,23 @@ if (plot_precipitation_PDFs) then
    draw(plot0)
    frame(wks)   
 end if
+
+if (plot_snowfall_difference) then
+   ;Generate differences between all years, 1979-2005
+   KSSignificance=kolsm2_n(AnnualO3TS,AnnualNO3TS,-1)
+   print("KS signifiance for difference period="+KSSignificance)
+   printVarSummary(AnnualO3TS)
+   differenceMatrix=new((/nYearFinalComparisonPeriod,nLENS,nNoOzoneEns/),double)
+   do t=0,nYearFinalComparisonPeriod-1
+      tt=nYearClimatology-nYearFinalComparisonPeriod+t
+      do nO3=0,nLENS-1
+         do nNO3=0,nNoOzoneEns-1
+	    differenceMatrix(t,nO3,nNO3)=AnnualO3TS(tt,nO3)-AnnualNO3TS(tt,nNO3)
+         end do
+      end do
+   end do
+   print(avg(differenceMatrix))
+   print(stddev(differenceMatrix))
+end if
+
+
