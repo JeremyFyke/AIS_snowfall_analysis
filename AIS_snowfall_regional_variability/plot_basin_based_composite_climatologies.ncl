@@ -235,7 +235,7 @@ begin
        end do
        wks = gsn_open_wks (wks_type,"figs/CESM_inter_basin_correlation_matrix")            
        corr_mat_plot=plot_basin_correlation_matrix(Xcor_basin_by_basin_CESM_copy,wks)
-       significance_plot=plot_significance(Rtest_basin_by_basin_CESM_copy,wks)
+       significance_plot=plot_significance(Rtest_basin_by_basin_CESM_copy,wks) CONTINUE HERE
        overlay(corr_mat_plot,significance_plot)
        draw(corr_mat_plot)
        frame(wks)       

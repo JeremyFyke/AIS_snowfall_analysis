@@ -1,14 +1,14 @@
 begin
 jan = False
-if (jan.eq.True)
-load "../common_ncl_utilies/composite_utilities.ncl"
-load "../common_ncl_utilies/general_utilities.ncl"
-load "../common_ncl_utilies/plotting_utilities.ncl"
-else
-;load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/composite_utilities.ncl"
-;load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/general_utilities.ncl"
-;load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utilities.ncl"
-end if
+;if (jan.eq.True)
+;load "../common_ncl_utilies/composite_utilities.ncl"
+;load "../common_ncl_utilies/general_utilities.ncl"
+;load "../common_ncl_utilies/plotting_utilities.ncl"
+;else
+load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/composite_utilities.ncl"
+load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/general_utilities.ncl"
+load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utilities.ncl"
+;end if
 
 LoadFreshData=True
 
@@ -40,7 +40,7 @@ iO3ClimMone=(nYrO3)*12-1
 nYrNO3=51
 iNO3ClimMons=(nYrNO3-nYearClimatology)*12
 iNO3ClimMone=(nYrNO3)*12-1
-nLENS=35
+nLENS=42
 NoOzoneNum=(/1,10,12,15,18,20,22,28/)
 nNoOzoneEns=dimsizes(NoOzoneNum)
 
@@ -62,9 +62,13 @@ if (LoadFreshData) then ;Only do this ensemble-wide data load if data processing
 
    PRECIP_O3(:,:,:,:)=0.0
    MonthlyO3TS(:,:)=0.0 
-   do e=1,35 ; skip first ensemble member for now because it has different file start/end date conventions.	  
+   do e=1,42 ; skip first ensemble member for now because it has different file start/end date conventions.	  
       ie=e-1
+      if (e.gt.35)
+      elong=sprinti("%0.3i", e+65)
+      else
       elong=sprinti("%0.3i", e)
+      end if
       print(sprinti("%0.3i", e))
       ;LoadMonthlyData function: in composite_utilities.ncl
 	  if (e.eq.1)
@@ -77,7 +81,7 @@ if (LoadFreshData) then ;Only do this ensemble-wide data load if data processing
 					 
    end do
    PRECIP_O3:=PRECIP_O3*year2sec; convert to m/yr
-   do e=1,35
+   do e=1,42
       ie=e-1
       ;calculate_integrated_timeseries function: in general_utilities.ncl
 	  MonthlyO3TS(:,ie)=calculate_integrated_timeseries(PRECIP_O3(:,:,:,ie),LandFrac,LandArea,AISMaskBinary)
@@ -256,26 +260,26 @@ wks_type=get_default_wks(); function in general_utilities.ncl
 ;Plot PRECIP_O3
    wks = gsn_open_wks (wks_type,"figs/PRECIP_O3")
    ;plot_field function: in plotting_utilities.ncl
-   plot=plot_field(PRECIP_O3_annual_ensemble_mean,0.,1.,False,True,-60.,wks)
+;   plot=plot_field(PRECIP_O3_annual_ensemble_mean,0.,1.,False,True,-60.,wks)
    draw(plot)
    frame(wks)
    ;Plot PRECIP_NO3
    wks = gsn_open_wks (wks_type,"figs/PRECIP_NO3")
-   plot=plot_field(PRECIP_NO3_annual_ensemble_mean,0.,1.,False,True,-60.,wks)
+  ; plot=plot_field(PRECIP_NO3_annual_ensemble_mean,0.,1.,False,True,-60.,wks)
    draw(plot)
    frame(wks)
 
 ;Plot absolute difference
    wks = gsn_open_wks (wks_type,"figs/dPRECIP_ABS")
    d=add_lev_lat_lon_arrays(PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean,lev,lat,lon)
-   plot=plot_field(d,-0.1,0.1,False,True,-60.,wks)
+ ;  plot=plot_field(d,-0.1,0.1,False,True,-60.,wks)
    draw(plot)
    frame(wks)
 
 ;Plot relative difference
    wks = gsn_open_wks (wks_type,"figs/dPRECIP_REL")
    d:=add_lev_lat_lon_arrays((PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean)/PRECIP_O3_annual_ensemble_mean*100.,lev,lat,lon)
-   plot=plot_field(d,-15.,15.,False,True,-60.,wks)
+  ; plot=plot_field(d,-15.,15.,False,True,-60.,wks)
    draw(plot)
    frame(wks)
 

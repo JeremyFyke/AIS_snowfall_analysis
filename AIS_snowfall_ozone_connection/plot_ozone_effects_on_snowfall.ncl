@@ -8,10 +8,12 @@ plot_raw_timeseries=False
 plot_annual_timeseries_difference=False
 plot_DJF_timeseries_difference=False
 plot_spatial_annual_snowfall=False
-plot_climatological_annual_cycle=True
+plot_climatological_annual_cycle=False
 plot_precipitation_PDFs=False
-plot_snowfall_difference=False
-plot_DJF_climatology_difference=True
+plot_basin_aggreggated_snowfall_change=False
+plot_spatial_snowfall_change=True
+plot_DJF_climatology_difference=False
+plot_spatial_climatological_dPSL=False
 
 ;Load CAM grid data
 in:=addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/CAM_base_data.nc","r")
@@ -24,92 +26,21 @@ LandArea = get_LandArea()
 LandFrac = get_LandFrac()
 AISMask = get_AIS_mask()
 AISMaskBinary=where(AISMask.gt.0,1,0)
+nAISMask = toint(max(AISMask))
 
-;
-;	      print("Loading LENS runs.")
-;	      PRECIP_O3=new((/nYrO3*12,192,288,nLENS/),"double")
-;	      MonthlyO3TS=new((/nMonthClimatology,nLENS/),"double")
-;	      PRECIP_O3(:,:,:,:)=0.0
-;	      MonthlyO3TS(:,:)=0.0 
-;	      do e=2,35 ; skip first ensemble member for now because it has different file start/end date conventions.
-;		 ie=e-2
-;		 elong=sprinti("%0.3i", e)
-;		 print(sprinti("%0.3i", e))
-;		 ;LoadMonthlyData function: in composite_utilities.ncl
-;		 PRECIP_O3(:,:,:,ie)=LoadMonthlyData("PRECC",str_concat((/"ls ",O3SD,"PRECC/b.e11.B20TRC5CNBDRD.f09_g16.",elong,".cam.h0.PRECC.192001-200512.nc"/)))\
-;                		    +LoadMonthlyData("PRECL",str_concat((/"ls ",O3SD,"PRECL/b.e11.B20TRC5CNBDRD.f09_g16.",elong,".cam.h0.PRECL.192001-200512.nc"/)))		;     
-;	      end do
-;	      PRECIP_O3:=PRECIP_O3(iO3ClimMons:iO3ClimMone,:,:,:)*year2sec; trim to climatological period, convert to m/yr
-;	      do e=2,35
-;		 ie=e-2
-;		 ;calculate_integrated_timeseries function: in general_utilities.ncl
-;		 MonthlyO3TS(:,ie)=calculate_integrated_timeseries(PRECIP_O3(:,:,:,ie),LandFrac,LandArea,AISMaskBinary)
-;	      end do
-;	      MonthlyO3TS=MonthlyO3TS/ 1.e9 ; integrated AIS PRECIP - m^3/yr -> kg/yr -> Gt/yr
-;
-;	      ;Make annual-average ensemble-average precip fields
-;	      PRECIP_O3_annual_ensemble_mean=dim_avg_n(PRECIP_O3,0);time
-;	      PRECIP_O3_annual_ensemble_mean:=dim_avg_n(PRECIP_O3_annual_ensemble_mean(:,:,:),2);ensemble
-;	      ;add_lev_lat_lon_arrays function: in general_utilities.ncl 
-;	      PRECIP_O3_annual_ensemble_mean:=add_lev_lat_lon_arrays(PRECIP_O3_annual_ensemble_mean,lev,lat,lon)
-;
-;	      print("Loading no-ozone-change runs.")
-;	      PRECIP_NO3=new((/nYrNO3*12,192,288,nNoOzoneEns/),"double")
-;	      MonthlyNO3TS=new((/nMonthClimatology,nNoOzoneEns/),"double")
-;	      PRECIP_NO3(:,:,:,:)=0.0
-;	      MonthlyNO3TS(:,:)=0.0
-;	      ne=0
-;	      do e=1,8
-;		 ie=e-1
-;		 elong=sprinti("%0.3i", NoOzoneNum(e-1))
-;		 print(sprinti("%0.3i", NoOzoneNum(e-1)))
-;		 PRECIP_NO3(:,:,:,ie)=LoadMonthlyData("PRECC",str_concat((/"ls ",NO3SD,"PRECC/b.e11.B20LE_fixedO3_",elong,".cam.h0.PRECC.195501-200512.nc"/)))\
-;                		     +LoadMonthlyData("PRECL",str_concat((/"ls ",NO3SD,"PRECL/b.e11.B20LE_fixedO3_",elong,".cam.h0.PRECL.195501-200512.nc"/)))		       
-;	      end do   
-;	      PRECIP_NO3:=PRECIP_NO3(iNO3ClimMons:iNO3ClimMone,:,:,:) * year2sec; trim to climatological period, convert to m/yr
-;	      do e=1,8
-;		 ie=e-1
-;		 MonthlyNO3TS(:,ie)=calculate_integrated_timeseries(PRECIP_NO3(:,:,:,ie),LandFrac,LandArea,AISMaskBinary)
-;	      end do
-;	      MonthlyNO3TS=MonthlyNO3TS/ 1.e9 ; integrated AIS PRECIP - m^3/yr -> kg/yr -> Gt/yr
-;
-;	      ;Make annual-average ensemble-average precip fields
-;	      PRECIP_NO3_annual_ensemble_mean=dim_avg_n(PRECIP_NO3,0);time
-;	      PRECIP_NO3_annual_ensemble_mean:=dim_avg_n(PRECIP_NO3_annual_ensemble_mean(:,:,:),2);ensemble
-;	      PRECIP_NO3_annual_ensemble_mean:=add_lev_lat_lon_arrays(PRECIP_NO3_annual_ensemble_mean,lev,lat,lon)
-;
-;	      system("rm -f "+fname)
-;	      ncdf=addfile(fname ,"c")
-;	      fAtt=True
-;	      fAtt@creation_date = systemfunc ("date")
-;	      fileattdef( ncdf, fAtt ) ; copy file attributes
-;	      filedimdef(ncdf,"time",-1,True)
-;	      ncdf->MonthlyO3TS =MonthlyO3TS
-;	      ncdf->MonthlyNO3TS=MonthlyNO3TS
-;	      ncdf->PRECIP_O3_annual_ensemble_mean=PRECIP_O3_annual_ensemble_mean
-;	      ncdf->PRECIP_NO3_annual_ensemble_mean=PRECIP_NO3_annual_ensemble_mean
-;	   else
-;	      ncdf=addfile(fname,"r")
-;	      MonthlyO3TS =ncdf->MonthlyO3TS
-;	      MonthlyNO3TS=ncdf->MonthlyNO3TS
-;	      PRECIP_O3_annual_ensemble_mean=ncdf->PRECIP_O3_annual_ensemble_mean
-;	      PRECIP_NO3_annual_ensemble_mean=ncdf->PRECIP_NO3_annual_ensemble_mean   
-;	   end if
+ZwallyBasinPolygonData=readAsciiTable("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/AIS_basin_masks/Ant_Full_DrainageSystem_Polygons.txt",3,"float",7)
 
-;;;Load data
-
-O3SD ="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files/lens/"
-NO3SD="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files/no-ozone/"
+O3SD ="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files_1991_2005/lens/"
+NO3SD="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files_1991_2005/no-ozone/"
+nYears=15
 OutputFileName="/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Ozone_analysis.nc"
 
-nYearCompPer=15
-nMonthCompPer=nYearCompPer*12
+nMonths=nYears*12
 
-nLENS=35
-NoOzoneNum=(/1,10,12,15,18,20,22,28/)
-nNoOzoneEns=dimsizes(NoOzoneNum)
+EnsNums=(/1,10,12,15,18,20,22,28/)
+nEns=dimsizes(EnsNums)
 
-;Hardcode dimension numbers
+;Hardcode dimension numbers for initial full datasets
 dTime=0
 dLat=1
 dLon=2
@@ -130,49 +61,41 @@ iPRECIP=nVar
 nVar=nVar+1
 iPSL=nVar
 nVar=nVar+1
+iTMQ=nVar
+nVar=nVar+1
+
+iO3=0
+iNO3=1
 
 if (LoadFreshData) then
 
+   O3Data=new((/nYears,192,288,nEns,nSeason,nVar/),"double")
+   NO3Data=new((/nYears,192,288,nEns,nSeason,nVar/),"double")
+   
    ;Load LENS data
-   do e=0,nLENS-1   
-      elong=sprinti("%0.3i", e+1)
+   do e=0,nEns-1
+      elong=sprinti("%0.3i", EnsNums(e))
       print("Loading LENS: "+elong)
-
-      ;Get dimension sizes if first time around
       in=addfile(str_concat((/O3SD,"year_PRECIP_",elong,".nc"/)),"r")
-      if(e.eq.0) then
-	 ds = getfiledimsizes(in)
-	 nYears=ds(2)
-	 nLats=ds(1)
-	 nLons=ds(0)
-	 O3Data=new((/nYears,nLats,nLons,nLENS,nSeason,nVar/),"double")
-      end if
-
-      in=addfile(str_concat((/O3SD,"year_PRECIP_",elong,".nc"/)),"r")
-      test=in->PRECIP
       O3Data(:,:,:,e,iAnn,iPRECIP)=in->PRECIP
       in=addfile(str_concat((/O3SD,"DJF_PRECIP_",elong,".nc"/)),"r")
-      O3Data(:,:,:,e,iDJF,iPRECIP)=in->PRECIP
+      O3Data(:,:,:,e,iDJF,iPRECIP)=in->PRECIP     
 
       in=addfile(str_concat((/O3SD,"year_PSL_",elong,".nc"/)),"r")
       O3Data(:,:,:,e,iAnn,iPSL)=in->PSL
       in=addfile(str_concat((/O3SD,"DJF_PSL_",elong,".nc"/)),"r")
-      O3Data(:,:,:,e,iDJF,iPSL)=in->PSL      
+      O3Data(:,:,:,e,iDJF,iPSL)=in->PSL
+      
+      in=addfile(str_concat((/O3SD,"year_TMQ_",elong,".nc"/)),"r")
+      O3Data(:,:,:,e,iAnn,iTMQ)=in->TMQ       
+      in=addfile(str_concat((/O3SD,"DJF_TMQ_",elong,".nc"/)),"r")
+      O3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ          
    end do
 
    ;Load no-ozone data
-
-   do e=0,nNoOzoneEns-1
-      elong=sprinti("%0.3i", NoOzoneNum(e))
+   do e=0,nEns-1
+      elong=sprinti("%0.3i", EnsNums(e))
       print("Loading no-ozone: "+elong)
-
-      ;Get dimension sizes if first time around
-      in=addfile(str_concat((/NO3SD,"year_PRECIP_",elong,".nc"/)),"r")
-      if(e.eq.0) then
-	 ds = getfiledimsizes(in)
-	 NO3Data=new((/ds(2),ds(1),ds(0),nNoOzoneEns,nSeason,nVar/),"double")
-      end if
-
       in=addfile(str_concat((/NO3SD,"year_PRECIP_",elong,".nc"/)),"r")
       NO3Data(:,:,:,e,iAnn,iPRECIP)=in->PRECIP
       in=addfile(str_concat((/NO3SD,"DJF_PRECIP_",elong,".nc"/)),"r")
@@ -182,164 +105,244 @@ if (LoadFreshData) then
       NO3Data(:,:,:,e,iAnn,iPSL)=in->PSL
       in=addfile(str_concat((/NO3SD,"DJF_PSL_",elong,".nc"/)),"r")
       NO3Data(:,:,:,e,iDJF,iPSL)=in->PSL
+      
+      in=addfile(str_concat((/NO3SD,"year_TMQ_",elong,".nc"/)),"r")
+      NO3Data(:,:,:,e,iAnn,iTMQ)=in->TMQ       
+      in=addfile(str_concat((/NO3SD,"DJF_TMQ_",elong,".nc"/)),"r")
+      NO3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ        
    end do
 
-   ;Calculate ensemble mean and STD map-view fields for each year
-   O3DataEnsMean =dim_avg_n(O3Data,dEns)
-   O3DataEnsStd  =dim_stddev_n(O3Data,dEns)
-   NO3DataEnsMean=dim_avg_n(NO3Data,dEns)
+   ;Calculate ensemble mean and STD map-view fields for each year.  Dimensions: [time, lat, lon, average period, variable]
+   O3DataEnsMean =dim_avg_n   (O3Data,dEns)
+   O3DataEnsStd  =dim_stddev_n(O3Data,dEns)  
+   NO3DataEnsMean=dim_avg_n   (NO3Data,dEns)
    NO3DataEnsStd =dim_stddev_n(NO3Data,dEns)
 
-   ;Calculate ensemble climatologies for comparison period
-   ts=nYears-nYearCompPer
-   te=nYears-1
-   O3DataEnsMeanClimo =dim_avg_n   (O3DataEnsMean(ts:te,:,:,:,:) ,dTime)
-   O3DataEnsStdClimo  =dim_stddev_n(O3DataEnsMean(ts:te,:,:,:,:) ,dTime)
-   NO3DataEnsMeanClimo=dim_avg_n   (NO3DataEnsMean(ts:te,:,:,:,:),dTime)
-   NO3DataEnsStdClimo =dim_stddev_n(NO3DataEnsMean(ts:te,:,:,:,:),dTime)
-
+   ;Calculate ensemble mean climatologies.  Dimensions: [lat, lon, average period, variable]
+   O3DataEnsMeanClimo =dim_avg_n     (O3DataEnsMean,dTime)
+   NO3DataEnsMeanClimo=dim_avg_n     (NO3DataEnsMean,dTime)
+   
+   ;Calculate absolute/relative spatial differences and grid-point difference significance
+   dEnsMeanClimoAbs=O3DataEnsMeanClimo-NO3DataEnsMeanClimo  ;Dimensions: [lat, lon, average period, variable]
+   dEnsMeanClimoRel=dEnsMeanClimoAbs/O3DataEnsMeanClimo
+   
+   ;Can't figure out how to do this as a single call, so looping it...
+   dEnsMeanClimo_pval=new((/192,288,nSeason,nVar/),double)
+   do lati=0,80 ; don't do whole globe, to save processing time.
+      print("Processing significance for latitude"+tostring(lati))
+      do loni=0,287
+	 do peri=0,nSeason-1
+	    do vari=0,nVar-1      
+	       aveX=avg(O3Data      (:,lati,loni,:,peri,vari))
+	       varX=variance(O3Data (:,lati,loni,:,peri,vari))
+	       sX=nYears*nEns
+	       aveY=avg(NO3Data     (:,lati,loni,:,peri,vari))
+	       varY=variance(NO3Data(:,lati,loni,:,peri,vari))
+	       sY=nYears*nEns
+	       dEnsMeanClimo_pval(lati,loni,peri,vari)=ttest(aveX,varX,sX,aveY,varY,sY,False,False)
+	    end do
+	 end do      
+      end do
+   end do
+   
    ;Calculate AIS-integrated precipitation Annual and DJFtime series
-   O3TS=new((/nYears,nLENS,2/),"double")
+   O3TS=new((/nYears,nEns,2/),"double")
    O3TS(:,:,:)=0.0
-   do e=0,nLENS-1
+   do e=0,nEns-1
       print("Calculating integrated timeseries for LENS: "+(e+1))
       O3TS(:,e,iAnn)=calculate_integrated_timeseries(O3Data(:,:,:,e,iAnn,iPRECIP),LandFrac,LandArea,AISMaskBinary)
       O3TS(:,e,iDJF)=calculate_integrated_timeseries(O3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,AISMaskBinary)
    end do
    
-   NO3TS=new((/nYears,nNoOzoneEns,2/),"double")
+   NO3TS=new((/nYears,nEns,2/),"double")
    NO3TS(:,:,:)=0.0
-   do e=0,nNoOzoneEns-1
+   do e=0,nEns-1
       print("Calculating integrated timeseries for no-ozone: "+(e+1))
       NO3TS(:,e,iAnn)=calculate_integrated_timeseries(NO3Data(:,:,:,e,iAnn,iPRECIP),LandFrac,LandArea,AISMaskBinary)
       NO3TS(:,e,iDJF)=calculate_integrated_timeseries(NO3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,AISMaskBinary)
    end do   
 
-   print("Saving data...")
-   system("rm -f "+OutputFileName)
-   ncdf=addfile(OutputFileName ,"c")
-   fAtt=True
-   fAtt@creation_date = systemfunc ("date")
-   fileattdef( ncdf, fAtt ) ; copy file attributes
-   filedimdef(ncdf,"time",-1,True)
-   ncdf->O3DataEnsMean=O3DataEnsMean
-   ncdf->NO3DataEnsMean=NO3DataEnsMean
-   ncdf->O3DataEnsStd=O3DataEnsStd
-   ncdf->NO3DataEnsStd=NO3DataEnsStd
-   ncdf->O3DataEnsMeanClimo=O3DataEnsMeanClimo
-   ncdf->NO3DataEnsMeanClimo=NO3DataEnsMeanClimo
-   ncdf->O3DataEnsStdClimo=O3DataEnsStdClimo
-   ncdf->NO3DataEnsStdClimo=NO3DataEnsStdClimo
-   ncdf->O3TS=O3TS
-   ncdf->NO3TS=NO3TS
-   print("...done.")    
+;   print("Saving data...")
+;   system("rm -f "+OutputFileName)
+;   ncdf=addfile(OutputFileName ,"c")
+;
+;   ;ncdf->O3Data=O3Data
+;   ;ncdf->NO3Data=NO3Data
+;
+;   ncdf->O3DataEnsMean=O3DataEnsMean
+;   ncdf->O3DataEnsStd=O3DataEnsStd
+;   ncdf->NO3DataEnsMean=NO3DataEnsMean
+;   ncdf->NO3DataEnsStd=NO3DataEnsStd
+;   
+;   ncdf->O3DataEnsMeanClimo=O3DataEnsMeanClimo
+;   ncdf->O3DataEnsVarClimo=O3DataEnsVarClimo
+;   ncdf->NO3DataEnsMeanClimo=NO3DataEnsMeanClimo   
+;   ncdf->NO3DataEnsVarClimo=NO3DataEnsVarClimo
+;
+;   ncdf->O3TS=O3TS
+;   ncdf->NO3TS=NO3TS
+;   print("...done.")  
+  
 else
-   ncdf=addfile(OutputFileName,"r")
-   O3DataEnsMean=ncdf->O3DataEnsMean
-   NO3DataEnsMean=ncdf->NO3DataEnsMean
-   O3DataEnsStd=ncdf->O3DataEnsStd
-   NO3DataEnsStd=ncdf->NO3DataEnsStd
-   O3DataEnsMeanClimo=ncdf->O3DataEnsMeanClimo
-   NO3DataEnsMeanClimo=ncdf->NO3DataEnsMeanClimo
-   O3DataEnsStdClimo=ncdf->O3DataEnsStdClimo
-   NO3DataEnsStdClimo=ncdf->NO3DataEnsStdClimo
-   O3TS=ncdf->O3TS
-   NO3TS=ncdf->NO3TS       
+;   ncdf=addfile(OutputFileName,"r")
+;   
+;   ;O3Data=ncdf->O3Data
+;   ;NO3Data=ncdf->NO3Data   
+;   
+;   O3DataEnsMean=ncdf->O3DataEnsMean
+;   NO3DataEnsMean=ncdf->NO3DataEnsMean
+;   O3DataEnsStd=ncdf->O3DataEnsStd
+;   NO3DataEnsStd=ncdf->NO3DataEnsStd
+;   O3DataEnsMeanClimo=ncdf->O3DataEnsMeanClimo
+;   NO3DataEnsMeanClimo=ncdf->NO3DataEnsMeanClimo
+;   O3DataEnsVarClimo=ncdf->O3DataEnsVarClimo
+;   NO3DataEnsVarClimo=ncdf->NO3DataEnsVarClimo
+;   O3TS=ncdf->O3TS
+;   NO3TS=ncdf->NO3TS
+;   ds=dimsizes(O3TS)
+;   nYears=ds(0)
 end if
-
-exit
 
 ;;;Analyze/plot stuff
 
 ;Calculate ensemble-mean stuff.  Store in arrays that are amenable for multi-line plotting.
-Years=fspan(1,nYearClimatology,nYearClimatology)+2005.-nYearClimatology
-monthsinDecimalYears=fspan(1,nMonthClimatology,nMonthClimatology)/12.+2005.-nYearClimatology
+Years=fspan(1,nYears,nYears)+2005.-nYears
 
-MonthlyEnsembleMeanStats= new((/6,nMonthClimatology/),double)
-MonthlyEnsembleMeanStats(0,:)=dim_min_n(MonthlyO3TS,1)
-MonthlyEnsembleMeanStats(1,:)=dim_max_n(MonthlyO3TS,1)
-MonthlyEnsembleMeanStats(2,:)=dim_avg_n(MonthlyO3TS,1)
+;monthsinDecimalYears=fspan(1,nMonthClimatology,nMonthClimatology)/12.+2005.-nYearClimatology
+;MonthlyEnsembleMeanStats= new((/6,nMonthClimatology/),double)
+;MonthlyEnsembleMeanStats(0,:)=dim_min_n(MonthlyO3TS,1)
+;MonthlyEnsembleMeanStats(1,:)=dim_max_n(MonthlyO3TS,1)
+;MonthlyEnsembleMeanStats(2,:)=dim_avg_n(MonthlyO3TS,1)
 
-MonthlyEnsembleMeanStats(3,:)=dim_min_n(MonthlyNO3TS,1)
-MonthlyEnsembleMeanStats(4,:)=dim_max_n(MonthlyNO3TS,1)
-MonthlyEnsembleMeanStats(5,:)=dim_avg_n(MonthlyNO3TS,1)
+;MonthlyEnsembleMeanStats(3,:)=dim_min_n(MonthlyNO3TS,1)
+;MonthlyEnsembleMeanStats(4,:)=dim_max_n(MonthlyNO3TS,1)
+;MonthlyEnsembleMeanStats(5,:)=dim_avg_n(MonthlyNO3TS,1)
 
-nbins=50
-opt=True
-O3Monthlypdf=pdfx(MonthlyO3TS,nbins,opt)
-NO3Monthlypdf=pdfx(MonthlyNO3TS,nbins,opt)
+print( "Average dynamic ozone annual mass flux="+avg(O3TS(:,:,iAnn))/1.e12 )
+print( "Average fixed ozone annual mass flux="  +avg(NO3TS(:,:,iAnn))/1.e12 )
 
-AnnualO3TS=month_to_annual(MonthlyO3TS,1)
-AnnualNO3TS=month_to_annual(MonthlyNO3TS,1)
-DJFO3TS =new((/nYearClimatology,nLENS/),double)
-DJFNO3TS=new((/nYearClimatology,nNoOzoneEns/),double)
-;Have to do these in loop since month_to_season doesn't like 2d arrays
-do ne=0,nLENS-1
-   DJFO3TS(:,ne)=month_to_season(MonthlyO3TS(:,ne),"DJF")
-end do
-do ne=0,nNoOzoneEns-1
-   DJFNO3TS(:,ne)=month_to_season(MonthlyNO3TS(:,ne),"DJF")
-end do
-   
-nbins=10
-opt=True
-O3Annualpdf=pdfx(AnnualO3TS,nbins,opt)
-NO3Annualpdf=pdfx(AnnualNO3TS,nbins,opt)
-print("Average dynamic ozone annual mass flux="+avg(AnnualO3TS))
-print("Average fixed ozone annual mass flux="+avg(AnnualNO3TS))
+nStats=0
+iMean=nStats
+nStats=nStats+1
+iMax=1
+nStats=nStats+1
+iMin=2
+nStats=nStats+1
+iOzoneDiff=nStats
+nStats=nStats+1
 
-AnnualEnsembleMeanStats=new((/9,nYearClimatology/),double)
-AnnualEnsembleMeanStats(0,:)=dim_min_n(AnnualO3TS,1)
-AnnualEnsembleMeanStats(1,:)=dim_max_n(AnnualO3TS,1)
-AnnualEnsembleMeanStats(2,:)=dim_avg_n(AnnualO3TS,1)
-AnnualEnsembleMeanStats(3,:)=dim_min_n(AnnualNO3TS,1)
-AnnualEnsembleMeanStats(4,:)=dim_max_n(AnnualNO3TS,1)
-AnnualEnsembleMeanStats(5,:)=dim_avg_n(AnnualNO3TS,1)
-AnnualEnsembleMeanStats(6,:)=dim_avg_n(AnnualO3TS,1) - dim_avg_n(AnnualNO3TS,1) ;snowfall change attributable to ozone
-AnnualEnsembleMeanStats(7,:)=runave(AnnualEnsembleMeanStats(6,:),5,0)
+;Calculate timeseries of ensemble-average statistics
+EnsembleStats=new((/nYears,nStats,2,2/),double); time, stats, ensemble, averaging period 
+EnsembleStats(:,iMin,iO3,iAnn)=dim_min_n(O3TS(:,:,iAnn),1)
+EnsembleStats(:,iMax,iO3,iAnn)=dim_max_n(O3TS(:,:,iAnn),1)
+EnsembleStats(:,iMean,iO3,iAnn)=dim_avg_n(O3TS(:,:,iAnn),1)
+EnsembleStats(:,iMin,iNO3,iAnn)=dim_min_n(NO3TS(:,:,iAnn),1)
+EnsembleStats(:,iMax,iNO3,iAnn)=dim_max_n(NO3TS(:,:,iAnn),1)
+EnsembleStats(:,iMean,iNO3,iAnn)=dim_avg_n(NO3TS(:,:,iAnn),1)
+EnsembleStats(:,iMin,iO3,iDJF)=dim_min_n(O3TS(:,:,iDJF),1)
+EnsembleStats(:,iMax,iO3,iDJF)=dim_max_n(O3TS(:,:,iDJF),1)
+EnsembleStats(:,iMean,iO3,iDJF)=dim_avg_n(O3TS(:,:,iDJF),1)
+EnsembleStats(:,iMin,iNO3,iDJF)=dim_min_n(NO3TS(:,:,iDJF),1)
+EnsembleStats(:,iMax,iNO3,iDJF)=dim_max_n(NO3TS(:,:,iDJF),1)
+EnsembleStats(:,iMean,iNO3,iDJF)=dim_avg_n(NO3TS(:,:,iDJF),1)
 
-DJFEnsembleMeanStats=new((/9,nYearClimatology/),double)
-DJFEnsembleMeanStats(0,:)=dim_min_n(DJFO3TS,1)
-DJFEnsembleMeanStats(1,:)=dim_max_n(DJFO3TS,1)
-DJFEnsembleMeanStats(2,:)=dim_avg_n(DJFO3TS,1)
-DJFEnsembleMeanStats(3,:)=dim_min_n(DJFNO3TS,1)
-DJFEnsembleMeanStats(4,:)=dim_max_n(DJFNO3TS,1)
-DJFEnsembleMeanStats(5,:)=dim_avg_n(DJFNO3TS,1)
-DJFEnsembleMeanStats(6,:)=dim_avg_n(DJFO3TS,1) - dim_avg_n(DJFNO3TS,1) ;snowfall change attributable to ozone
-DJFEnsembleMeanStats(7,:)=runave(DJFEnsembleMeanStats(6,:),5,0)
+;Calculate ozone minus no-ozone difference time series
+DAnnualEnsembleStats=new((/nYears,nStats,2/),double); time, stats, averaging period
+DAnnualEnsembleStats(:,iMin,iAnn) =EnsembleStats(:,iMin,iO3,iAnn) -EnsembleStats(:,iMin,iNO3,iAnn)
+DAnnualEnsembleStats(:,iMax,iAnn) =EnsembleStats(:,iMax,iO3,iAnn) -EnsembleStats(:,iMax,iNO3,iAnn)
+DAnnualEnsembleStats(:,iMean,iAnn)=EnsembleStats(:,iMean,iO3,iAnn)-EnsembleStats(:,iMean,iNO3,iAnn)
+DAnnualEnsembleStats(:,iMin,iDJF) =EnsembleStats(:,iMin,iO3,iDJF) -EnsembleStats(:,iMin,iNO3,iDJF)
+DAnnualEnsembleStats(:,iMax,iDJF) =EnsembleStats(:,iMax,iO3,iDJF) -EnsembleStats(:,iMax,iNO3,iDJF)
+DAnnualEnsembleStats(:,iMean,iDJF)=EnsembleStats(:,iMean,iO3,iDJF)-EnsembleStats(:,iMean,iNO3,iDJF)
 
-;Here, just calculate post-depletion climatologies.  I.e. 15==1991->2005
-printVarSummary(MonthlyO3TS)
-print(nMonthClimatology-nMonthFinalComparisonPeriod)
-
-MonthlyClimoEnsembleMeanStats=new((/6,12/),double)
-MonthlyClimo=rm_single_dims( clmMonTLL(reshape(MonthlyO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nLENS,1/))) )
-MonthlyClimoEnsembleMeanStats(0,:)=dim_avg_n( MonthlyClimo , 1 )
-MonthlyClimoEnsembleMeanStats(1,:)=MonthlyClimoEnsembleMeanStats(0,:)-dim_stddev_n( MonthlyClimo , 1 )
-MonthlyClimoEnsembleMeanStats(2,:)=MonthlyClimoEnsembleMeanStats(0,:)+dim_stddev_n( MonthlyClimo , 1 )
-MonthlyClimo:=rm_single_dims( clmMonTLL(reshape(MonthlyNO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nNoOzoneEns,1/))) )
-MonthlyClimoEnsembleMeanStats(3,:)=dim_avg_n( MonthlyClimo , 1 )
-MonthlyClimoEnsembleMeanStats(4,:)=MonthlyClimoEnsembleMeanStats(3,:)-dim_stddev_n( MonthlyClimo , 1 )
-MonthlyClimoEnsembleMeanStats(5,:)=MonthlyClimoEnsembleMeanStats(3,:)+dim_stddev_n( MonthlyClimo , 1 )
-
-;Calculate statistical signficance of inter-ensemble differences, at each year.  To be improved on...!
-do t=1,nYearClimatology
-   tm1=t-1
-   ave1=avg(AnnualO3TS(tm1,:))
-   ave2=avg(AnnualNO3TS(tm1,:))
-   var1=variance(AnnualO3TS(tm1,:))
-   var2=variance(AnnualNO3TS(tm1,:))
-   AnnualEnsembleMeanStats(8,tm1)=ttest(ave1,var1,ave2,var2,nLENS,nNoOzoneEns,False,False); statistical significance of inter-ensemble difference
-end do
+;;Here, just calculate post-depletion climatologies.  I.e. 15==1991->2005
+;printVarSummary(MonthlyO3TS)
+;print(nMonthClimatology-nMonthFinalComparisonPeriod)
+;MonthlyClimoEnsembleMeanStats=new((/6,12/),double)
+;MonthlyClimo=rm_single_dims( clmMonTLL(reshape(MonthlyO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nLENS,1/))) )
+;MonthlyClimoEnsembleMeanStats(0,:)=dim_avg_n( MonthlyClimo , 1 )
+;MonthlyClimoEnsembleMeanStats(1,:)=MonthlyClimoEnsembleMeanStats(0,:)-dim_stddev_n( MonthlyClimo , 1 )
+;MonthlyClimoEnsembleMeanStats(2,:)=MonthlyClimoEnsembleMeanStats(0,:)+dim_stddev_n( MonthlyClimo , 1 )
+;MonthlyClimo:=rm_single_dims( clmMonTLL(reshape(MonthlyNO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nEns,1/))) )
+;MonthlyClimoEnsembleMeanStats(3,:)=dim_avg_n( MonthlyClimo , 1 )
+;MonthlyClimoEnsembleMeanStats(4,:)=MonthlyClimoEnsembleMeanStats(3,:)-dim_stddev_n( MonthlyClimo , 1 )
+;MonthlyClimoEnsembleMeanStats(5,:)=MonthlyClimoEnsembleMeanStats(3,:)+dim_stddev_n( MonthlyClimo , 1 )
 
 ;Hard-code simple estimate of recent AIS mass loss (Gt/yr, Forsberg et al., 2017, 10.1007/s10712-016-9398-7) for plot comparisons
 ForsbergObsStats=new((/3,4/),double)
 ForsbergObsStats(0,:)=fspan(95.,95.,4) ;mean
 ForsbergObsStats(1,:)=fspan(95.-50.,95.-50.,4) ;min
-ForsbergObsStats(2,:)=fspan(95.+50.,95.+50.,4)
+ForsbergObsStats(2,:)=fspan(95.+50.,95.+50.,4) ;max
 ForsbergTime=fspan(2002.,2005,4)
 
+;Load Brooke's reconstructed differences
+f=addfile("../input_data/Medley_reconstructions/final_recon_v1_cesm.nc","r")
+dPRECIP_Recon=new((/192,288/),double)
+dPRECIP_Recon_pval=new((/192,288/),double)
+
+tmp=lonPivot(f->rel_change_1986_2000(lat|:,lon|:),0.)
+tmp2=lonPivot(f->pval_1986_2000(lat|:,lon|:),0.)
+do lati=0,42
+   do loni=0,287
+      if (tmp(lati,loni).ge.-100.) then
+	 if (tmp(lati,loni).le.100.) then
+	    dPRECIP_Recon(lati,loni)=tmp(lati,loni)
+	    dPRECIP_Recon_pval(lati,loni)=tmp2(lati,loni)
+	 end if
+      end if
+   end do
+end do
+
+if (plot_basin_aggreggated_snowfall_change) then
+   ;Get CESM and reconstruction climatological accumulation changes on basin-scale
+   Basin_integrated_dSNOWFALL_O3  = new((/nYears,nEns,nAISMask/),double)
+   Basin_integrated_dSNOWFALL_NO3 = new((/nYears,nEns,nAISMask/),double)
+   dPRECIP_CESM_basin_pval = new((/nAISMask/),double)
+   dPRECIP_CESM_basin = new((/nAISMask/),double)
+   dPRECIP_CESM_mask=new(dimsizes(AISMask),"double")
+   dPRECIP_CESM_pval_mask=new(dimsizes(AISMask),"double")
+   do b = 0,nAISMask-1
+      print("***")
+      BasinMask=where(AISMask.eq.b+1,1,0)
+      do e = 0,nEns-1
+	 Basin_integrated_dSNOWFALL_O3(:,e,b)=calculate_integrated_timeseries(O3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,BasinMask)
+	 Basin_integrated_dSNOWFALL_NO3(:,e,b)=calculate_integrated_timeseries(NO3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,BasinMask)      
+      end do
+      aveX=avg(Basin_integrated_dSNOWFALL_O3(:,:,b))
+      varX=variance(Basin_integrated_dSNOWFALL_O3(:,:,b))
+      aveY=avg(Basin_integrated_dSNOWFALL_NO3(:,:,b))
+      varY=variance(Basin_integrated_dSNOWFALL_NO3(:,:,b))
+      dPRECIP_CESM_basin(b)=(aveX-aveY)/aveX ;Relative change
+      dPRECIP_CESM_basin_pval(b)=ttest(aveX,varX,sX,aveY,varY,sY,False,False)  
+
+      dPRECIP_CESM_mask=where(AISMask.eq.b,dPRECIP_CESM_basin(b),dPRECIP_CESM_mask)
+      dPRECIP_CESM_pval_mask=where(AISMask.eq.b,dPRECIP_CESM_basin_pval(b),dPRECIP_CESM_pval_mask)
+   end do
+end if
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;:PLOTTING BEGINS HERE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 wks_type=get_default_wks(); function in general_utilities.ncl
+
+if (plot_basin_aggreggated_snowfall_change) then
+
+
+     
+end if
+
+if (plot_spatial_snowfall_change) then
+   
+   wks = gsn_open_wks (wks_type,"figs/dTMQ_REL")
+   PRECIP_plot = plot_field(alll(dEnsMeanClimoRel(:,:,iDJF,iTMQ),lev,lat,lon),-.15,.15,False,"cmp_b2r",True,-50.,wks)
+   significance_plot=plot_significance(alll(dEnsMeanClimo_pval(:,:,iDJF,iTMQ),lev,lat,lon),wks)   
+   PRECIP_plot = plot_basin_polygons(ZwallyBasinPolygonData,PRECIP_plot,wks,nAISMask,-9999)
+   PSL_plot = plot_field(alll(dEnsMeanClimoAbs(:,:,iDJF,iPSL),lev,lat,lon),-1000.,10.,True,(/"blue","black","red"/),False,-50.,wks)
+   overlay(PRECIP_plot,significance_plot)
+   overlay(PRECIP_plot,PSL_plot)
+   draw(PRECIP_plot)
+   frame(wks)    
+   
+end if
 
 if (plot_raw_timeseries) then
    ;Plot monthy/annual raw ensemble-mean integrated AIS accumulation time series
@@ -351,7 +354,7 @@ if (plot_raw_timeseries) then
    res@trYMaxF=4500.
    res@gsnDraw      = False  
    res@gsnFrame     = False  
-   res@xyLineThicknesses = (/  1.0,  1.0, 10.0, 1.0,  1.0, 10.0/) 
+   res@xyLineThicknesses = (/1.0, 1.0, 10.0, 1.0,  1.0, 10.0/) 
    res@xyLineColors      = (/"blue","blue","blue","red","red","red"/) 
    res@xyDashPattern     := (/2,2,0,2,2,0/)
    monthly_plot = gsn_csm_xy(wks,monthsinDecimalYears,MonthlyEnsembleMeanStats,res)
@@ -454,10 +457,12 @@ if (plot_DJF_timeseries_difference) then
    frame(wks)   
 end if
 
-if (plot_DJF_climatology_difference) then
-   wks = gsn_open_wks (wks_type,"figs/dclimate_DJF")
-   
-   
+if (plot_spatial_climatological_dPSL) then
+   wks = gsn_open_wks (wks_type,"figs/dPSL_DJF")
+   field=alll(O3DataEnsMeanClimo(:,:,iDJF,iPSL)-NO3DataEnsMeanClimo(:,:,iDJF,iPSL),lev,lat,lon)
+   plot=plot_field(field,-250.,250.,True,(/"blue","black","red"/),True,-50.,wks)
+   draw(plot)
+   frame(wks)   
 end if
 
 if (plot_spatial_annual_snowfall) then
@@ -475,14 +480,14 @@ if (plot_spatial_annual_snowfall) then
 
    ;Plot absolute difference
    wks = gsn_open_wks (wks_type,"figs/dPRECIP_ABS")
-   d=add_lev_lat_lon_arrays(PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean,lev,lat,lon)
+   d=alll(PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean,lev,lat,lon)
    plot=plot_field(d,-0.1,0.1,False,"rainbow",True,-60.,wks)
    draw(plot)
    frame(wks)
 
    ;Plot relative difference
    wks = gsn_open_wks (wks_type,"figs/dPRECIP_REL")
-   d:=add_lev_lat_lon_arrays((PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean)/PRECIP_O3_annual_ensemble_mean*100.,lev,lat,lon)
+   d:=alll((PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean)/PRECIP_O3_annual_ensemble_mean*100.,lev,lat,lon)
    plot=plot_field(d,-15.,15.,False,"rainbow",True,-60.,wks)
    draw(plot)
    frame(wks)
@@ -572,23 +577,3 @@ if (plot_precipitation_PDFs) then
    draw(plot0)
    frame(wks)   
 end if
-
-if (plot_snowfall_difference) then
-   ;Generate differences between all years, 1979-2005
-   KSSignificance=kolsm2_n(AnnualO3TS,AnnualNO3TS,-1)
-   print("KS signifiance for difference period="+KSSignificance)
-   printVarSummary(AnnualO3TS)
-   differenceMatrix=new((/nYearFinalComparisonPeriod,nLENS,nNoOzoneEns/),double)
-   do t=0,nYearFinalComparisonPeriod-1
-      tt=nYearClimatology-nYearFinalComparisonPeriod+t
-      do nO3=0,nLENS-1
-         do nNO3=0,nNoOzoneEns-1
-	    differenceMatrix(t,nO3,nNO3)=AnnualO3TS(tt,nO3)-AnnualNO3TS(tt,nNO3)
-         end do
-      end do
-   end do
-   print(avg(differenceMatrix))
-   print(stddev(differenceMatrix))
-end if
-
-

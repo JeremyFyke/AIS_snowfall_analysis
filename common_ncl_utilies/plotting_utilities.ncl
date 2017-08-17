@@ -59,7 +59,7 @@
 	 opt@gsnShadeFillScales   = 1.0
 	 opt@gsnShadeLow	  = 16
 	 opt@gsnShadeDotSizeF     = 10
-	 significance_plot = gsn_contour_shade(significance_plot, 0.05, 30., opt)  ; shade all areas >95%
+	 significance_plot = gsn_contour_shade(significance_plot, 0.10, 30., opt)  ; shade all areas >95%
          return significance_plot
       end
       
@@ -96,14 +96,15 @@
 	       bm1=b-1
 	       res_poly             = True
 	       res_poly@gsEdgesOn   = True       ; draw border around polygons
-	       res_poly@gsEdgeColor = "black"
+	       res_poly@gsEdgeColor = "grey"
 	       res_poly@gsFillColor = "white"
 	       res_poly@gsFillOpacityF = 0.0
-	       res_poly@gsEdgeThicknessF = 20
+	       res_poly@gsEdgeThicknessF = 10
 	       if (b.eq.highLightBasin) then
 	          res_poly@gsFillColor = "green"
 	          res_poly@gsFillOpacityF = 1.0
 	       end if
+	       res_poly@tfPolyDrawOrder = "PostDraw"
 	       PolyInds=ind(ZwallyBasinPolygonInds.eq.b)
 	       a(b-1)=gsn_add_polygon(wks,plot,\
 	        	   ZwallyBasinPolygonLons(PolyInds),\
@@ -235,11 +236,11 @@
 	    res@cnMaxLevelValF       = maxval              ; set max contour level
 	    res@cnLevelSpacingF      = (maxval-minval)/20    ; set contour spacing
 	    res@cnLineLabelsOn    = False
-	    res@cnFillDrawOrder = "PostDraw"
+	    ;res@cnFillDrawOrder = "PostDraw"
 	    if (lineContours) then
 	       res@cnLinesOn = True
 	       res@cnFillOn = False
-	       res@cnLineThicknessF = 15
+	       res@cnLineThicknessF = 5
 	    else
 	       res@cnLinesOn = False
 	       res@cnFillOn = True

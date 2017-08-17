@@ -64,7 +64,7 @@ function get_Topog()
       return Topog
    end
 
-function add_lev_lat_lon_arrays(field,lev,lat,lon)
+function alll(field,lev,lat,lon)
 begin
    rank=dimsizes(dimsizes(field))
    ;See if field is 2d or 3d.  If 3d, assume first dimension is vertical level.
