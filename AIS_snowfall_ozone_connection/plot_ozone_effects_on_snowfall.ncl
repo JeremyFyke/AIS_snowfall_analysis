@@ -2,11 +2,8 @@ load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/composite_util
 load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/general_utilities.ncl"
 load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utilities.ncl"
 
-LoadFreshData=True
-
-plot_raw_timeseries=False
-plot_annual_timeseries_difference=False
-plot_DJF_timeseries_difference=False
+LoadFreshData=False
+   process_monthly_data=False
 plot_spatial_annual_snowfall=False
 plot_climatological_annual_cycle=False
 plot_precipitation_PDFs=False
@@ -30,9 +27,9 @@ nAISMask = toint(max(AISMask))
 
 ZwallyBasinPolygonData=readAsciiTable("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/AIS_basin_masks/Ant_Full_DrainageSystem_Polygons.txt",3,"float",7)
 
-O3SD ="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files_1991_2005/lens/"
-NO3SD="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files_1991_2005/no-ozone/"
-nYears=15
+O3SD ="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files_1986_2005/lens/"
+NO3SD="/glade/p/cesm/liwg/AIS_snowfall_analysis/AIS_snowfall_ozone_connection/files_1986_2005/no-ozone/"
+nYears=20
 OutputFileName="/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Ozone_analysis.nc"
 
 nMonths=nYears*12
@@ -63,6 +60,8 @@ iPSL=nVar
 nVar=nVar+1
 iTMQ=nVar
 nVar=nVar+1
+iZ500=nVar
+nVar=nVar+1
 
 iO3=0
 iNO3=1
@@ -71,7 +70,9 @@ if (LoadFreshData) then
 
    O3Data=new((/nYears,192,288,nEns,nSeason,nVar/),"double")
    NO3Data=new((/nYears,192,288,nEns,nSeason,nVar/),"double")
-   
+   O3DataMonthly =new((/nMonths,192,288,nEns,nVar/),"double")
+   NO3DataMonthly=new((/nMonths,192,288,nEns,nVar/),"double")
+      
    ;Load LENS data
    do e=0,nEns-1
       elong=sprinti("%0.3i", EnsNums(e))
@@ -79,8 +80,11 @@ if (LoadFreshData) then
       in=addfile(str_concat((/O3SD,"year_PRECIP_",elong,".nc"/)),"r")
       O3Data(:,:,:,e,iAnn,iPRECIP)=in->PRECIP
       in=addfile(str_concat((/O3SD,"DJF_PRECIP_",elong,".nc"/)),"r")
-      O3Data(:,:,:,e,iDJF,iPRECIP)=in->PRECIP     
-
+      O3Data(:,:,:,e,iDJF,iPRECIP)=in->PRECIP
+      if (process_monthly_data) then
+         in=addfile(str_concat((/O3SD,"mon_PRECIP_",elong,".nc"/)),"r")
+         O3DataMonthly(:,:,:,e,iPRECIP)=in->PRECIP
+      end if
       in=addfile(str_concat((/O3SD,"year_PSL_",elong,".nc"/)),"r")
       O3Data(:,:,:,e,iAnn,iPSL)=in->PSL
       in=addfile(str_concat((/O3SD,"DJF_PSL_",elong,".nc"/)),"r")
@@ -89,7 +93,18 @@ if (LoadFreshData) then
       in=addfile(str_concat((/O3SD,"year_TMQ_",elong,".nc"/)),"r")
       O3Data(:,:,:,e,iAnn,iTMQ)=in->TMQ       
       in=addfile(str_concat((/O3SD,"DJF_TMQ_",elong,".nc"/)),"r")
-      O3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ          
+      O3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ
+      
+      in=addfile(str_concat((/O3SD,"year_TMQ_",elong,".nc"/)),"r")
+      O3Data(:,:,:,e,iAnn,iTMQ)=in->TMQ       
+      in=addfile(str_concat((/O3SD,"DJF_TMQ_",elong,".nc"/)),"r")
+      O3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ
+      
+      in=addfile(str_concat((/O3SD,"year_Z500_850_",elong,".nc"/)),"r")
+      O3Data(:,:,:,e,iAnn,iZ500)=in->Z500       
+      in=addfile(str_concat((/O3SD,"DJF_Z500_850_",elong,".nc"/)),"r")
+      O3Data(:,:,:,e,iDJF,iZ500)=in->Z500
+
    end do
 
    ;Load no-ozone data
@@ -100,7 +115,11 @@ if (LoadFreshData) then
       NO3Data(:,:,:,e,iAnn,iPRECIP)=in->PRECIP
       in=addfile(str_concat((/NO3SD,"DJF_PRECIP_",elong,".nc"/)),"r")
       NO3Data(:,:,:,e,iDJF,iPRECIP)=in->PRECIP
-
+      if (process_monthly_data) then
+         in=addfile(str_concat((/NO3SD,"mon_PRECIP_",elong,".nc"/)),"r")
+         NO3DataMonthly(:,:,:,e,iPRECIP)=in->PRECIP
+      end if
+      
       in=addfile(str_concat((/NO3SD,"year_PSL_",elong,".nc"/)),"r")
       NO3Data(:,:,:,e,iAnn,iPSL)=in->PSL
       in=addfile(str_concat((/NO3SD,"DJF_PSL_",elong,".nc"/)),"r")
@@ -109,22 +128,21 @@ if (LoadFreshData) then
       in=addfile(str_concat((/NO3SD,"year_TMQ_",elong,".nc"/)),"r")
       NO3Data(:,:,:,e,iAnn,iTMQ)=in->TMQ       
       in=addfile(str_concat((/NO3SD,"DJF_TMQ_",elong,".nc"/)),"r")
-      NO3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ        
+      NO3Data(:,:,:,e,iDJF,iTMQ)=in->TMQ
+      
+      in=addfile(str_concat((/NO3SD,"year_Z500_850_",elong,".nc"/)),"r")
+      NO3Data(:,:,:,e,iAnn,iZ500)=in->Z500       
+      in=addfile(str_concat((/NO3SD,"DJF_Z500_850_",elong,".nc"/)),"r")
+      NO3Data(:,:,:,e,iDJF,iZ500)=in->Z500          
    end do
 
-   ;Calculate ensemble mean and STD map-view fields for each year.  Dimensions: [time, lat, lon, average period, variable]
-   O3DataEnsMean =dim_avg_n   (O3Data,dEns)
-   O3DataEnsStd  =dim_stddev_n(O3Data,dEns)  
+   ;Calculate ensemble mean fields for each year.  Dimensions: [time, lat, lon, average period, variable]
+   O3DataEnsMean =dim_avg_n   (O3Data,dEns) 
    NO3DataEnsMean=dim_avg_n   (NO3Data,dEns)
-   NO3DataEnsStd =dim_stddev_n(NO3Data,dEns)
 
    ;Calculate ensemble mean climatologies.  Dimensions: [lat, lon, average period, variable]
    O3DataEnsMeanClimo =dim_avg_n     (O3DataEnsMean,dTime)
    NO3DataEnsMeanClimo=dim_avg_n     (NO3DataEnsMean,dTime)
-   
-   ;Calculate absolute/relative spatial differences and grid-point difference significance
-   dEnsMeanClimoAbs=O3DataEnsMeanClimo-NO3DataEnsMeanClimo  ;Dimensions: [lat, lon, average period, variable]
-   dEnsMeanClimoRel=dEnsMeanClimoAbs/O3DataEnsMeanClimo
    
    ;Can't figure out how to do this as a single call, so looping it...
    dEnsMeanClimo_pval=new((/192,288,nSeason,nVar/),double)
@@ -146,92 +164,100 @@ if (LoadFreshData) then
    end do
    
    ;Calculate AIS-integrated precipitation Annual and DJFtime series
-   O3TS=new((/nYears,nEns,2/),"double")
+   O3TS=new((/nYears,nEns,nSeason/),"double")
    O3TS(:,:,:)=0.0
+   NO3TS=new((/nYears,nEns,nSeason/),"double")
+   NO3TS(:,:,:)=0.0   
+   O3TSMonthly =new((/nMonths,nEns/),"double")
+   O3TSMonthly (:,:)=0.0
+   NO3TSMonthly =new((/nMonths,nEns/),"double")
+   NO3TSMonthly (:,:)=0.0
+
    do e=0,nEns-1
       print("Calculating integrated timeseries for LENS: "+(e+1))
       O3TS(:,e,iAnn)=calculate_integrated_timeseries(O3Data(:,:,:,e,iAnn,iPRECIP),LandFrac,LandArea,AISMaskBinary)
       O3TS(:,e,iDJF)=calculate_integrated_timeseries(O3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,AISMaskBinary)
-   end do
-   
-   NO3TS=new((/nYears,nEns,2/),"double")
-   NO3TS(:,:,:)=0.0
-   do e=0,nEns-1
+      if (process_monthly_data) then
+        print("...monthly timeseries...")      
+        O3TSMonthly(:,e)=calculate_integrated_timeseries(O3DataMonthly(:,:,:,e,iPRECIP),LandFrac,LandArea,AISMaskBinary)
+      end if
+
       print("Calculating integrated timeseries for no-ozone: "+(e+1))
       NO3TS(:,e,iAnn)=calculate_integrated_timeseries(NO3Data(:,:,:,e,iAnn,iPRECIP),LandFrac,LandArea,AISMaskBinary)
       NO3TS(:,e,iDJF)=calculate_integrated_timeseries(NO3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,AISMaskBinary)
+      if (process_monthly_data) then
+         print("...monthly timeseries...")
+         NO3TSMonthly(:,e)=calculate_integrated_timeseries(NO3DataMonthly(:,:,:,e,iPRECIP),LandFrac,LandArea,AISMaskBinary)
+      end if      
    end do   
+   
+   print("Saving data...")
+   system("rm -f "+OutputFileName)
+   ncdf=addfile(OutputFileName ,"c")
 
-;   print("Saving data...")
-;   system("rm -f "+OutputFileName)
-;   ncdf=addfile(OutputFileName ,"c")
-;
-;   ;ncdf->O3Data=O3Data
-;   ;ncdf->NO3Data=NO3Data
-;
-;   ncdf->O3DataEnsMean=O3DataEnsMean
-;   ncdf->O3DataEnsStd=O3DataEnsStd
-;   ncdf->NO3DataEnsMean=NO3DataEnsMean
-;   ncdf->NO3DataEnsStd=NO3DataEnsStd
-;   
-;   ncdf->O3DataEnsMeanClimo=O3DataEnsMeanClimo
-;   ncdf->O3DataEnsVarClimo=O3DataEnsVarClimo
-;   ncdf->NO3DataEnsMeanClimo=NO3DataEnsMeanClimo   
-;   ncdf->NO3DataEnsVarClimo=NO3DataEnsVarClimo
-;
-;   ncdf->O3TS=O3TS
-;   ncdf->NO3TS=NO3TS
-;   print("...done.")  
+   ncdf->O3DataEnsMean=O3DataEnsMean
+   ncdf->NO3DataEnsMean=NO3DataEnsMean
+   ncdf->O3DataEnsMeanClimo=O3DataEnsMeanClimo  
+   ncdf->NO3DataEnsMeanClimo=NO3DataEnsMeanClimo 
+   ncdf->dEnsMeanClimo_pval=dEnsMeanClimo_pval 
+
+   O3TS=O3TS/1.e12
+   NO3TS=NO3TS/1.e12
+   O3TSMonthly=O3TSMonthly/1.e12
+   NO3TSMonthly=NO3TSMonthly/1.e12
+
+   ncdf->O3TS=O3TS
+   ncdf->NO3TS=NO3TS
+   ncdf->O3TSMonthly=O3TSMonthly
+   ncdf->NO3TSMonthly=NO3TSMonthly
+      
+   print("...done.")  
   
 else
-;   ncdf=addfile(OutputFileName,"r")
-;   
-;   ;O3Data=ncdf->O3Data
-;   ;NO3Data=ncdf->NO3Data   
-;   
-;   O3DataEnsMean=ncdf->O3DataEnsMean
-;   NO3DataEnsMean=ncdf->NO3DataEnsMean
-;   O3DataEnsStd=ncdf->O3DataEnsStd
-;   NO3DataEnsStd=ncdf->NO3DataEnsStd
-;   O3DataEnsMeanClimo=ncdf->O3DataEnsMeanClimo
-;   NO3DataEnsMeanClimo=ncdf->NO3DataEnsMeanClimo
-;   O3DataEnsVarClimo=ncdf->O3DataEnsVarClimo
-;   NO3DataEnsVarClimo=ncdf->NO3DataEnsVarClimo
-;   O3TS=ncdf->O3TS
-;   NO3TS=ncdf->NO3TS
-;   ds=dimsizes(O3TS)
-;   nYears=ds(0)
+   
+   print("Loading data...")
+   ncdf=addfile(OutputFileName,"r")
+
+   O3DataEnsMean=ncdf->O3DataEnsMean
+   NO3DataEnsMean=ncdf->NO3DataEnsMean
+   O3DataEnsMeanClimo=ncdf->O3DataEnsMeanClimo  
+   NO3DataEnsMeanClimo=ncdf->NO3DataEnsMeanClimo 
+   dEnsMeanClimo_pval=ncdf->dEnsMeanClimo_pval 
+
+   O3TS=ncdf->O3TS
+   NO3TS=ncdf->NO3TS
+   O3TSMonthly=ncdf->O3TSMonthly
+   NO3TSMonthly=ncdf->NO3TSMonthly
+   print("...done.")   
+
 end if
 
-;;;Analyze/plot stuff
+;Calculate absolute/relative spatial differences and grid-point difference significance
+dEnsMeanClimoAbs=O3DataEnsMeanClimo-NO3DataEnsMeanClimo  ;Dimensions: [lat, lon, average period, variable]
+dEnsMeanClimoRel=dEnsMeanClimoAbs/O3DataEnsMeanClimo
 
-;Calculate ensemble-mean stuff.  Store in arrays that are amenable for multi-line plotting.
-Years=fspan(1,nYears,nYears)+2005.-nYears
-
-;monthsinDecimalYears=fspan(1,nMonthClimatology,nMonthClimatology)/12.+2005.-nYearClimatology
-;MonthlyEnsembleMeanStats= new((/6,nMonthClimatology/),double)
-;MonthlyEnsembleMeanStats(0,:)=dim_min_n(MonthlyO3TS,1)
-;MonthlyEnsembleMeanStats(1,:)=dim_max_n(MonthlyO3TS,1)
-;MonthlyEnsembleMeanStats(2,:)=dim_avg_n(MonthlyO3TS,1)
-
-;MonthlyEnsembleMeanStats(3,:)=dim_min_n(MonthlyNO3TS,1)
-;MonthlyEnsembleMeanStats(4,:)=dim_max_n(MonthlyNO3TS,1)
-;MonthlyEnsembleMeanStats(5,:)=dim_avg_n(MonthlyNO3TS,1)
-
-print( "Average dynamic ozone annual mass flux="+avg(O3TS(:,:,iAnn))/1.e12 )
-print( "Average fixed ozone annual mass flux="  +avg(NO3TS(:,:,iAnn))/1.e12 )
+;Calculate monthly timeseries of ensemble statistics.
 
 nStats=0
 iMean=nStats
 nStats=nStats+1
-iMax=1
+iMax=nStats
 nStats=nStats+1
-iMin=2
-nStats=nStats+1
-iOzoneDiff=nStats
+iMin=nStats
 nStats=nStats+1
 
-;Calculate timeseries of ensemble-average statistics
+Years=fspan(1,nYears,nYears)+2005.-nYears
+monthsinDecimalYears=fspan(1,nMonths,nMonths)/12.+2005.-nYears
+
+MonthlyEnsembleMeanStats= new((/nMonths,nStats,2/),double)
+MonthlyEnsembleMeanStats(:,iMin,iO3)=dim_min_n(O3TSMonthly,1)
+MonthlyEnsembleMeanStats(:,iMax,iO3)=dim_max_n(O3TSMonthly,1)
+MonthlyEnsembleMeanStats(:,iMean,iO3)=dim_avg_n(O3TSMonthly,1)
+MonthlyEnsembleMeanStats(:,iMin,iNO3)=dim_min_n(NO3TSMonthly,1)
+MonthlyEnsembleMeanStats(:,iMax,iNO3)=dim_max_n(NO3TSMonthly,1)
+MonthlyEnsembleMeanStats(:,iMean,iNO3)=dim_avg_n(NO3TSMonthly,1)
+
+;Calculate seasonal/annual timeseries of ensemble statistics
 EnsembleStats=new((/nYears,nStats,2,2/),double); time, stats, ensemble, averaging period 
 EnsembleStats(:,iMin,iO3,iAnn)=dim_min_n(O3TS(:,:,iAnn),1)
 EnsembleStats(:,iMax,iO3,iAnn)=dim_max_n(O3TS(:,:,iAnn),1)
@@ -246,34 +272,49 @@ EnsembleStats(:,iMin,iNO3,iDJF)=dim_min_n(NO3TS(:,:,iDJF),1)
 EnsembleStats(:,iMax,iNO3,iDJF)=dim_max_n(NO3TS(:,:,iDJF),1)
 EnsembleStats(:,iMean,iNO3,iDJF)=dim_avg_n(NO3TS(:,:,iDJF),1)
 
-;Calculate ozone minus no-ozone difference time series
-DAnnualEnsembleStats=new((/nYears,nStats,2/),double); time, stats, averaging period
-DAnnualEnsembleStats(:,iMin,iAnn) =EnsembleStats(:,iMin,iO3,iAnn) -EnsembleStats(:,iMin,iNO3,iAnn)
-DAnnualEnsembleStats(:,iMax,iAnn) =EnsembleStats(:,iMax,iO3,iAnn) -EnsembleStats(:,iMax,iNO3,iAnn)
-DAnnualEnsembleStats(:,iMean,iAnn)=EnsembleStats(:,iMean,iO3,iAnn)-EnsembleStats(:,iMean,iNO3,iAnn)
-DAnnualEnsembleStats(:,iMin,iDJF) =EnsembleStats(:,iMin,iO3,iDJF) -EnsembleStats(:,iMin,iNO3,iDJF)
-DAnnualEnsembleStats(:,iMax,iDJF) =EnsembleStats(:,iMax,iO3,iDJF) -EnsembleStats(:,iMax,iNO3,iDJF)
-DAnnualEnsembleStats(:,iMean,iDJF)=EnsembleStats(:,iMean,iO3,iDJF)-EnsembleStats(:,iMean,iNO3,iDJF)
+ds=dimsizes(O3TS)
+sX=ds(0)*ds(1)
+sY=sX
+aveX=avg(O3TS(:,:,iAnn))
+varX=variance(O3TS(:,:,iAnn))
+aveY=avg(NO3TS(:,:,iAnn))
+varY=variance(NO3TS(:,:,iAnn))
+pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False) 
+print( "Average dynamic ozone annual mass flux="+tostring(aveX))
+print( "Average fixed ozone annual mass flux="  +tostring(aveY))
+print( "Mean annual ozone-forced snowfall change=" + tostring((aveX-aveY)))
+print( "Pval of annual ozone-forced snowfall change=" +tostring(pval))
+print( "Standard deviation of annual ozone-forced snowfall change="+tostring(stddev(EnsembleStats(:,iMean,iO3,iAnn)-EnsembleStats(:,iMean,iNO3,iAnn))))
+aveX=avg(O3TS(:,:,iDJF))
+varX=variance(O3TS(:,:,iDJF))
+aveY=avg(NO3TS(:,:,iDJF))
+varY=variance(NO3TS(:,:,iDJF))
+pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False) 
+print( "Average dynamic ozone DJF mass flux="+tostring(aveX))
+print( "Average fixed ozone DJF mass flux="  +tostring(aveY))
+print( "Mean climatological DJF-integrated ozone-forced snowfall change=" + tostring((aveX-aveY)))
+print( "Pval of mean climatological DJF-integrated ozone-forced snowfall change=" +tostring(pval))
+print( "Standard deviation of DJF ozone-forced snowfall change="+tostring(stddev(EnsembleStats(:,iMean,iO3,iDJF)-EnsembleStats(:,iMean,iNO3,iDJF))))
 
-;;Here, just calculate post-depletion climatologies.  I.e. 15==1991->2005
-;printVarSummary(MonthlyO3TS)
-;print(nMonthClimatology-nMonthFinalComparisonPeriod)
-;MonthlyClimoEnsembleMeanStats=new((/6,12/),double)
-;MonthlyClimo=rm_single_dims( clmMonTLL(reshape(MonthlyO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nLENS,1/))) )
-;MonthlyClimoEnsembleMeanStats(0,:)=dim_avg_n( MonthlyClimo , 1 )
-;MonthlyClimoEnsembleMeanStats(1,:)=MonthlyClimoEnsembleMeanStats(0,:)-dim_stddev_n( MonthlyClimo , 1 )
-;MonthlyClimoEnsembleMeanStats(2,:)=MonthlyClimoEnsembleMeanStats(0,:)+dim_stddev_n( MonthlyClimo , 1 )
-;MonthlyClimo:=rm_single_dims( clmMonTLL(reshape(MonthlyNO3TS(nMonthClimatology-nMonthFinalComparisonPeriod:nMonthClimatology-1,:) , (/nMonthFinalComparisonPeriod,nEns,1/))) )
-;MonthlyClimoEnsembleMeanStats(3,:)=dim_avg_n( MonthlyClimo , 1 )
-;MonthlyClimoEnsembleMeanStats(4,:)=MonthlyClimoEnsembleMeanStats(3,:)-dim_stddev_n( MonthlyClimo , 1 )
-;MonthlyClimoEnsembleMeanStats(5,:)=MonthlyClimoEnsembleMeanStats(3,:)+dim_stddev_n( MonthlyClimo , 1 )
+;Calculate monthly climatologies, for all ensemble members.  Dimensions: time, ensemble number
+MonthlyClimoEnsembleMeanStats=new((/12,6/),double) ;months-in-year,ensemble
+MonthlyClimo=rm_single_dims( clmMonTLL(reshape(O3TSMonthly, (/nMonths,nEns,1/) )) )
 
-;Hard-code simple estimate of recent AIS mass loss (Gt/yr, Forsberg et al., 2017, 10.1007/s10712-016-9398-7) for plot comparisons
-ForsbergObsStats=new((/3,4/),double)
-ForsbergObsStats(0,:)=fspan(95.,95.,4) ;mean
-ForsbergObsStats(1,:)=fspan(95.-50.,95.-50.,4) ;min
-ForsbergObsStats(2,:)=fspan(95.+50.,95.+50.,4) ;max
-ForsbergTime=fspan(2002.,2005,4)
+;Get ensemble-mean monthly climatology stats for integrated snowfall flux
+MonthlyClimoEnsembleMeanStats(:,0)=dim_avg_n( MonthlyClimo , 1 )
+MonthlyClimoEnsembleMeanStats(:,1)=dim_avg_n( MonthlyClimo , 1 )-dim_stddev_n( MonthlyClimo , 1 )
+MonthlyClimoEnsembleMeanStats(:,2)=dim_avg_n( MonthlyClimo , 1 )+dim_stddev_n( MonthlyClimo , 1 )
+
+MonthlyClimo:=rm_single_dims( clmMonTLL(reshape(NO3TSMonthly, (/nMonths,nEns,1/) )) )
+MonthlyClimoEnsembleMeanStats(:,3)=dim_avg_n( MonthlyClimo , 1 )
+MonthlyClimoEnsembleMeanStats(:,4)=dim_avg_n( MonthlyClimo , 1 )-dim_stddev_n( MonthlyClimo , 1 )
+MonthlyClimoEnsembleMeanStats(:,5)=dim_avg_n( MonthlyClimo , 1 )+dim_stddev_n( MonthlyClimo , 1 )
+
+;Calculate seasonal ranges
+O3Range=max(MonthlyClimoEnsembleMeanStats(:,0))-min(MonthlyClimoEnsembleMeanStats(:,0))
+NO3Range=max(MonthlyClimoEnsembleMeanStats(:,3))-min(MonthlyClimoEnsembleMeanStats(:,3))
+RangeChange=(NO3Range-O3Range)/NO3Range
+print("Change in seasonal cycle range due to ozone depletion="+tostring(RangeChange))
 
 ;Load Brooke's reconstructed differences
 f=addfile("../input_data/Medley_reconstructions/final_recon_v1_cesm.nc","r")
@@ -322,6 +363,8 @@ end if
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;:PLOTTING BEGINS HERE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 wks_type=get_default_wks(); function in general_utilities.ncl
 
 if (plot_basin_aggreggated_snowfall_change) then
@@ -332,129 +375,16 @@ end if
 
 if (plot_spatial_snowfall_change) then
    
-   wks = gsn_open_wks (wks_type,"figs/dTMQ_REL")
-   PRECIP_plot = plot_field(alll(dEnsMeanClimoRel(:,:,iDJF,iTMQ),lev,lat,lon),-.15,.15,False,"cmp_b2r",True,-50.,wks)
-   significance_plot=plot_significance(alll(dEnsMeanClimo_pval(:,:,iDJF,iTMQ),lev,lat,lon),wks)   
+   wks = gsn_open_wks (wks_type,"figs/dPRECIP_REL")
+   PRECIP_plot = plot_field(alll(dEnsMeanClimoRel(:,:,iDJF,iPRECIP),lev,lat,lon),-.15,.15,False,"cmp_b2r",True,-50.,wks)
+   significance_plot=plot_significance(alll(dEnsMeanClimo_pval(:,:,iDJF,iPRECIP),lev,lat,lon),wks)   
    PRECIP_plot = plot_basin_polygons(ZwallyBasinPolygonData,PRECIP_plot,wks,nAISMask,-9999)
-   PSL_plot = plot_field(alll(dEnsMeanClimoAbs(:,:,iDJF,iPSL),lev,lat,lon),-1000.,10.,True,(/"blue","black","red"/),False,-50.,wks)
+   Z500_plot = plot_field(alll(dEnsMeanClimoAbs(:,:,iDJF,iZ500),lev,lat,lon),-25.,25.,True,(/"blue","black","red"/),False,-50.,wks)
    overlay(PRECIP_plot,significance_plot)
-   overlay(PRECIP_plot,PSL_plot)
+   overlay(PRECIP_plot,Z500_plot)
    draw(PRECIP_plot)
    frame(wks)    
    
-end if
-
-if (plot_raw_timeseries) then
-   ;Plot monthy/annual raw ensemble-mean integrated AIS accumulation time series
-   wks = gsn_open_wks (wks_type,"figs/PRECIP_O_TS");Plot timeseries and ensemble spread of integrated precip
-   res = True                      ; plot mods desired
-   res@trXMinF=min(Years)
-   res@trXMaxF=max(Years)
-   res@trYMinF=500.
-   res@trYMaxF=4500.
-   res@gsnDraw      = False  
-   res@gsnFrame     = False  
-   res@xyLineThicknesses = (/1.0, 1.0, 10.0, 1.0,  1.0, 10.0/) 
-   res@xyLineColors      = (/"blue","blue","blue","red","red","red"/) 
-   res@xyDashPattern     := (/2,2,0,2,2,0/)
-   monthly_plot = gsn_csm_xy(wks,monthsinDecimalYears,MonthlyEnsembleMeanStats,res)
-   res@xyLineThicknesses :=(/20.0, 20.0/)
-   res@xyLineColors :=(/"blue","red"/)
-   res@xyDashPattern     := (/0,0/)
-   data=new((/2,nYearClimatology/),double)
-   data(0,:)=AnnualEnsembleMeanStats(2,:); grab the mean timeseries, condense into a new temporary array
-   data(1,:)=AnnualEnsembleMeanStats(5,:)
-   annual_plot = gsn_csm_xy(wks,Years-0.5,data,res)
-   lineres=True
-   lineres@lgLineThicknesses=(/20.0, 20.0/)
-   lineres@lgLineColors=(/"blue","red"/)
-   gres = True
-   gres@YPosPosition = 95.    ; expressed as %, 0->100, sets position of top border of legend 
-   gres@XPosPosition = 5      ; expressed as %, 0->100, sets position of left border of legend(Default = 5.)
-   textres = True
-   textres@lgLabels = (/"Dynamic ozone ensemble","Fixed ozone ensemble"/) 
-   annual_plot = simple_legend(wks,annual_plot,gres,lineres,textres)
-   draw(annual_plot)
-   overlay(monthly_plot,annual_plot)
-   draw(monthly_plot)  
-   frame(wks)
-end if
-
-if (plot_annual_timeseries_difference) then
-   ;plot difference in integrated AIS accumulation due to ozone, overlay against estimated loss trend
-   wks = gsn_open_wks (wks_type,"figs/dPRECIP_O_TS");Plot timeseries and ensemble spread of integrated precip
-   res := True
-   res@trXMinF=min(Years)
-   res@trXMaxF=max(Years)
-   res@trYMinF=-80.
-   res@trYMaxF=180.
-   res@gsnDraw      = False                        ; don't draw yet
-   res@gsnFrame     = False                        ; don't advance frame yet
-   res@xyLineThicknesses := (/20.0/)          ; make second line thicker
-   res@xyLineColors      := (/"black"/)          ; change line color
-   difference_plot = gsn_csm_xy(wks,Years-0.5,AnnualEnsembleMeanStats(6,:),res)
-
-   res@xyLineColors      := (/"grey"/)          ; change line color
-   running_average_plot = gsn_csm_xy(wks,Years-0.5,AnnualEnsembleMeanStats(7,:),res)
-
-   res@xyLineThicknesses := (/20.0,  10.0, 10.0/)          ; make second line thicker
-   res@xyDashPattern     := (/0,2,2/) 
-   res@xyLineColors      := (/"orange","orange","orange"/)          ; change line color
-   obs_plot = gsn_csm_xy(wks,ForsbergTime-0.5,ForsbergObsStats,res)
-   lineres=True
-   lineres@lgLineThicknesses=(/20.0, 20.0/)
-   lineres@lgLineColors=(/"black","orange"/)
-   gres = True
-   gres@YPosPosition = 95.    ; expressed as %, 0->100, sets position of top border of legend 
-   gres@XPosPosition = 5      ; expressed as %, 0->100, sets position of left border of legend(Default = 5.)
-   textres = True
-   textres@lgLabels = (/"Ozone-attributable AIS accumulation change","2002-2015 AIS mass loss estimate"/) 
-   difference_plot = simple_legend(wks,difference_plot,gres,lineres,textres)
-
-   draw(annual_plot)
-   overlay(difference_plot,running_average_plot)
-   overlay(difference_plot,obs_plot)
-   draw(difference_plot)
-   frame(wks)
-end if
-
-if (plot_DJF_timeseries_difference) then
-   ;plot difference in integrated AIS accumulation due to ozone, overlay against estimated loss trend
-   wks = gsn_open_wks (wks_type,"figs/dPRECIP_DJF_O_TS");Plot timeseries and ensemble spread of integrated precip
-   res := True
-   res@trXMinF=min(Years)
-   res@trXMaxF=max(Years)
-   res@trYMinF=-150.
-   res@trYMaxF=300.
-   res@gsnDraw      = False                        ; don't draw yet
-   res@gsnFrame     = False                        ; don't advance frame yet
-   res@xyLineThicknesses := (/20.0/)          ; make second line thicker
-   res@xyLineColors      := (/"black"/)          ; change line color   
-   res@tiYAxisString = "DJF precipitation difference (Gt/yr)"
-   res@tiXAxisString = "Year"
-   difference_plot = gsn_csm_xy(wks,Years-0.5,DJFEnsembleMeanStats(6,:),res)
-
-   res@xyLineColors      := (/"red"/)          ; change line color
-   running_average_plot = gsn_csm_xy(wks,Years-0.5,DJFEnsembleMeanStats(7,:),res)
-
-   ;res@xyLineThicknesses := (/20.0,  10.0, 10.0/)          ; make second line thicker
-   ;res@xyDashPattern     := (/0,2,2/) 
-   ;res@xyLineColors      := (/"orange","orange","orange"/)          ; change line color
-   ;obs_plot = gsn_csm_xy(wks,ForsbergTime-0.5,ForsbergObsStats,res)
-   ;lineres=True
-   ;lineres@lgLineThicknesses=(/20.0, 20.0/)
-   ;lineres@lgLineColors=(/"black","orange"/)
-   ;gres = True
-   ;gres@YPosPosition = 95.    ; expressed as %, 0->100, sets position of top border of legend 
-   ;gres@XPosPosition = 5      ; expressed as %, 0->100, sets position of left border of legend(Default = 5.)
-   ;textres = True
-   ;textres@lgLabels = (/"Ozone-attributable AIS accumulation change","2002-2015 AIS mass loss estimate"/) 
-   ;difference_plot = simple_legend(wks,difference_plot,gres,lineres,textres)
-
-   overlay(difference_plot,running_average_plot)
-   ;overlay(difference_plot,obs_plot)
-   draw(difference_plot)
-   frame(wks)   
 end if
 
 if (plot_spatial_climatological_dPSL) then
@@ -496,8 +426,8 @@ end if
 if (plot_climatological_annual_cycle) then
    months=ispan(0,11,1)
    wks = gsn_open_wks (wks_type,"figs/Monthly_climatology");Plot timeseries and ensemble spread of integrated precip
-   miny=1300.
-   maxy=3100.
+   miny=1300./12.
+   maxy=3100./12.
    res = True                      ; plot mods desired   
    res@gsnDraw          = False
    res@gsnFrame         = False
@@ -508,46 +438,52 @@ if (plot_climatological_annual_cycle) then
    res@tmXBLabels        = (/"J","A","S","O","N","D",\
                                 "J","F","M","A","M","J"/)
    res@tmXBMode             = "Explicit"      ; label independently
-   res@tiYAxisString = "Integrated accumulation (Gt/yr)"
+   res@tiYAxisString = "Integrated accumulation (Gt/month)"
    res@tiXAxisString = "Month"
    res@trXMaxF = 11
    res@trYMinF = miny
    res@trYMaxF = maxy      
-   tmp=new(dimsizes(MonthlyClimoEnsembleMeanStats),double)
-   tmp(:,0:5)=MonthlyClimoEnsembleMeanStats(:,6:11);this makes cycle start in July
-   tmp(:,6:11)=MonthlyClimoEnsembleMeanStats(:,0:5);this makes cycle start in July
+   
+   ;reorder so seasonal cycle starts in July
+   tmp:=new(dimsizes(MonthlyClimoEnsembleMeanStats),typeof(MonthlyClimoEnsembleMeanStats))
+   tmp(0:5,:)=MonthlyClimoEnsembleMeanStats(6:11,:);this makes cycle start in July
+   tmp(6:11,:)=MonthlyClimoEnsembleMeanStats(0:5,:);this makes cycle start in July
+   MonthlyClimoEnsembleMeanStats=tmp
+   MonthlyClimoEnsembleMeanStats!0="months"
+   MonthlyClimoEnsembleMeanStats!1="stats"   
 
-   monthly_climatology_plot = gsn_csm_xy(wks,months,tmp,res)
+   monthly_climatology_plot = gsn_csm_xy(wks,months,MonthlyClimoEnsembleMeanStats(stats|:,months|:),res)
    pgres                  = True
    pgres@gsFillOpacityF   = 0.2 
    ;Draw box around emerged region
-   EmergedIndex=where(tmp(3,:).gt.tmp(1,:),0,1)
-   xp=new((/4/),float)
-   yp=new((/4/),float)
-   xp(0)=maxind(EmergedIndex);Find first index of emerged conditions
-   xp(3)=xp(0)   
-   xp(1)=11-maxind(EmergedIndex(::-1));Cryptically, find last index of emerged conditions
-   xp(2)=xp(1)
+   ;EmergedIndex=where(MonthlyClimoEnsembleMeanStats(:,3).gt.MonthlyClimoEnsembleMeanStats(:,1),0,1)
+   ;xp=new((/4/),float)
+   ;yp=new((/4/),float)
+   ;xp(0)=maxind(EmergedIndex);Find first index of emerged conditions
+   ;xp(3)=xp(0)   
+   ;xp(1)=11-maxind(EmergedIndex(::-1));Cryptically, find last index of emerged conditions
+   ;xp(2)=xp(1)
 
-   yp(0)=maxy
-   yp(1)=yp(0)
-   yp(2)=miny
-   yp(3)=yp(2) 
+   ;yp(0)=maxy
+   ;yp(1)=yp(0)
+   ;yp(2)=miny
+   ;yp(3)=yp(2) 
 
-   pgres@gsFillColor      = "Grey"
-   dummy0 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
+   ;pgres@gsFillColor      = "Grey"
+   ;dummy0 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
+   
    ;Make shaded ranges
    xp:=new((/24/),float)
    yp:=new((/24/),double)
    xp(0:11)=months
    xp(12:23)=months(::-1)
-   yp(0:11)=tmp(5,:)
-   yp(12:23)=tmp(4,::-1)
+   yp(0:11)=MonthlyClimoEnsembleMeanStats(:,5)
+   yp(12:23)=MonthlyClimoEnsembleMeanStats(::-1,4)
    pgres@gsFillColor      = "Red"
    pgres@gsFillOpacityF        = 0.2  
    dummy1 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
-   yp(0:11)=tmp(2,:)
-   yp(12:23)=tmp(1,::-1)   
+   yp(0:11)=MonthlyClimoEnsembleMeanStats(:,2)
+   yp(12:23)=MonthlyClimoEnsembleMeanStats(::-1,1)   
    pgres@gsFillColor      = "Blue"
    dummy2 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
    lineres=True

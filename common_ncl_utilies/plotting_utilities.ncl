@@ -59,7 +59,7 @@
 	 opt@gsnShadeFillScales   = 1.0
 	 opt@gsnShadeLow	  = 16
 	 opt@gsnShadeDotSizeF     = 10
-	 significance_plot = gsn_contour_shade(significance_plot, 0.10, 30., opt)  ; shade all areas >95%
+	 significance_plot = gsn_contour_shade(significance_plot, 0.05, 30., opt)  ; shade all areas >95%
          return significance_plot
       end
       
@@ -96,7 +96,7 @@
 	       bm1=b-1
 	       res_poly             = True
 	       res_poly@gsEdgesOn   = True       ; draw border around polygons
-	       res_poly@gsEdgeColor = "grey"
+	       res_poly@gsEdgeColor = "black"
 	       res_poly@gsFillColor = "white"
 	       res_poly@gsFillOpacityF = 0.0
 	       res_poly@gsEdgeThicknessF = 10
