@@ -5,9 +5,7 @@ load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utili
 LoadFreshData=False
    process_monthly_data=False
 plot_spatial_annual_snowfall=False
-plot_climatological_annual_cycle=False
 plot_precipitation_PDFs=False
-plot_basin_aggreggated_snowfall_change=False
 plot_spatial_snowfall_change=True
 plot_DJF_climatology_difference=False
 plot_spatial_climatological_dPSL=False
@@ -272,30 +270,6 @@ EnsembleStats(:,iMin,iNO3,iDJF)=dim_min_n(NO3TS(:,:,iDJF),1)
 EnsembleStats(:,iMax,iNO3,iDJF)=dim_max_n(NO3TS(:,:,iDJF),1)
 EnsembleStats(:,iMean,iNO3,iDJF)=dim_avg_n(NO3TS(:,:,iDJF),1)
 
-ds=dimsizes(O3TS)
-sX=ds(0)*ds(1)
-sY=sX
-aveX=avg(O3TS(:,:,iAnn))
-varX=variance(O3TS(:,:,iAnn))
-aveY=avg(NO3TS(:,:,iAnn))
-varY=variance(NO3TS(:,:,iAnn))
-pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False) 
-print( "Average dynamic ozone annual mass flux="+tostring(aveX))
-print( "Average fixed ozone annual mass flux="  +tostring(aveY))
-print( "Mean annual ozone-forced snowfall change=" + tostring((aveX-aveY)))
-print( "Pval of annual ozone-forced snowfall change=" +tostring(pval))
-print( "Standard deviation of annual ozone-forced snowfall change="+tostring(stddev(EnsembleStats(:,iMean,iO3,iAnn)-EnsembleStats(:,iMean,iNO3,iAnn))))
-aveX=avg(O3TS(:,:,iDJF))
-varX=variance(O3TS(:,:,iDJF))
-aveY=avg(NO3TS(:,:,iDJF))
-varY=variance(NO3TS(:,:,iDJF))
-pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False) 
-print( "Average dynamic ozone DJF mass flux="+tostring(aveX))
-print( "Average fixed ozone DJF mass flux="  +tostring(aveY))
-print( "Mean climatological DJF-integrated ozone-forced snowfall change=" + tostring((aveX-aveY)))
-print( "Pval of mean climatological DJF-integrated ozone-forced snowfall change=" +tostring(pval))
-print( "Standard deviation of DJF ozone-forced snowfall change="+tostring(stddev(EnsembleStats(:,iMean,iO3,iDJF)-EnsembleStats(:,iMean,iNO3,iDJF))))
-
 ;Calculate monthly climatologies, for all ensemble members.  Dimensions: time, ensemble number
 MonthlyClimoEnsembleMeanStats=new((/12,6/),double) ;months-in-year,ensemble
 MonthlyClimo=rm_single_dims( clmMonTLL(reshape(O3TSMonthly, (/nMonths,nEns,1/) )) )
@@ -310,11 +284,6 @@ MonthlyClimoEnsembleMeanStats(:,3)=dim_avg_n( MonthlyClimo , 1 )
 MonthlyClimoEnsembleMeanStats(:,4)=dim_avg_n( MonthlyClimo , 1 )-dim_stddev_n( MonthlyClimo , 1 )
 MonthlyClimoEnsembleMeanStats(:,5)=dim_avg_n( MonthlyClimo , 1 )+dim_stddev_n( MonthlyClimo , 1 )
 
-;Calculate seasonal ranges
-O3Range=max(MonthlyClimoEnsembleMeanStats(:,0))-min(MonthlyClimoEnsembleMeanStats(:,0))
-NO3Range=max(MonthlyClimoEnsembleMeanStats(:,3))-min(MonthlyClimoEnsembleMeanStats(:,3))
-RangeChange=(NO3Range-O3Range)/NO3Range
-print("Change in seasonal cycle range due to ozone depletion="+tostring(RangeChange))
 
 ;Load Brooke's reconstructed differences
 f=addfile("../input_data/Medley_reconstructions/final_recon_v1_cesm.nc","r")
@@ -367,22 +336,23 @@ end if
 
 wks_type=get_default_wks(); function in general_utilities.ncl
 
-if (plot_basin_aggreggated_snowfall_change) then
-
-
-     
-end if
 
 if (plot_spatial_snowfall_change) then
    
+   latbound=-58.
    wks = gsn_open_wks (wks_type,"figs/dPRECIP_REL")
-   PRECIP_plot = plot_field(alll(dEnsMeanClimoRel(:,:,iDJF,iPRECIP),lev,lat,lon),-.15,.15,False,"cmp_b2r",True,-50.,wks)
+   PRECIP_plot = plot_field(alll(dEnsMeanClimoRel(:,:,iDJF,iPRECIP),lev,lat,lon),-.2,.2,False,"MPL_BrBG",True,latbound,wks)
    significance_plot=plot_significance(alll(dEnsMeanClimo_pval(:,:,iDJF,iPRECIP),lev,lat,lon),wks)   
    PRECIP_plot = plot_basin_polygons(ZwallyBasinPolygonData,PRECIP_plot,wks,nAISMask,-9999)
-   Z500_plot = plot_field(alll(dEnsMeanClimoAbs(:,:,iDJF,iZ500),lev,lat,lon),-25.,25.,True,(/"blue","black","red"/),False,-50.,wks)
+   Z500_plot = plot_field(alll(dEnsMeanClimoAbs(:,:,iDJF,iZ500),lev,lat,lon),-25.,25.,True,"MPL_bwr",False,latbound,wks)
+   getvalues Z500_plot
+     "cnLevels" : levels
+   end getvalues
+   print(levels)
    overlay(PRECIP_plot,significance_plot)
    overlay(PRECIP_plot,Z500_plot)
    draw(PRECIP_plot)
+   
    frame(wks)    
    
 end if
@@ -420,82 +390,6 @@ if (plot_spatial_annual_snowfall) then
    d:=alll((PRECIP_O3_annual_ensemble_mean-PRECIP_NO3_annual_ensemble_mean)/PRECIP_O3_annual_ensemble_mean*100.,lev,lat,lon)
    plot=plot_field(d,-15.,15.,False,"rainbow",True,-60.,wks)
    draw(plot)
-   frame(wks)
-end if
-
-if (plot_climatological_annual_cycle) then
-   months=ispan(0,11,1)
-   wks = gsn_open_wks (wks_type,"figs/Monthly_climatology");Plot timeseries and ensemble spread of integrated precip
-   miny=1300./12.
-   maxy=3100./12.
-   res = True                      ; plot mods desired   
-   res@gsnDraw          = False
-   res@gsnFrame         = False
-   res@xyLineThicknesses = (/  10.0,  5.0, 5.0, 10.0,  5.0, 5.0/) 
-   res@xyLineColors      = (/"blue","blue","blue","red","red","red"/) 
-   res@xyDashPattern     := (/0,2,2,0,2,2/)
-   res@tmXBValues        = months
-   res@tmXBLabels        = (/"J","A","S","O","N","D",\
-                                "J","F","M","A","M","J"/)
-   res@tmXBMode             = "Explicit"      ; label independently
-   res@tiYAxisString = "Integrated accumulation (Gt/month)"
-   res@tiXAxisString = "Month"
-   res@trXMaxF = 11
-   res@trYMinF = miny
-   res@trYMaxF = maxy      
-   
-   ;reorder so seasonal cycle starts in July
-   tmp:=new(dimsizes(MonthlyClimoEnsembleMeanStats),typeof(MonthlyClimoEnsembleMeanStats))
-   tmp(0:5,:)=MonthlyClimoEnsembleMeanStats(6:11,:);this makes cycle start in July
-   tmp(6:11,:)=MonthlyClimoEnsembleMeanStats(0:5,:);this makes cycle start in July
-   MonthlyClimoEnsembleMeanStats=tmp
-   MonthlyClimoEnsembleMeanStats!0="months"
-   MonthlyClimoEnsembleMeanStats!1="stats"   
-
-   monthly_climatology_plot = gsn_csm_xy(wks,months,MonthlyClimoEnsembleMeanStats(stats|:,months|:),res)
-   pgres                  = True
-   pgres@gsFillOpacityF   = 0.2 
-   ;Draw box around emerged region
-   ;EmergedIndex=where(MonthlyClimoEnsembleMeanStats(:,3).gt.MonthlyClimoEnsembleMeanStats(:,1),0,1)
-   ;xp=new((/4/),float)
-   ;yp=new((/4/),float)
-   ;xp(0)=maxind(EmergedIndex);Find first index of emerged conditions
-   ;xp(3)=xp(0)   
-   ;xp(1)=11-maxind(EmergedIndex(::-1));Cryptically, find last index of emerged conditions
-   ;xp(2)=xp(1)
-
-   ;yp(0)=maxy
-   ;yp(1)=yp(0)
-   ;yp(2)=miny
-   ;yp(3)=yp(2) 
-
-   ;pgres@gsFillColor      = "Grey"
-   ;dummy0 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
-   
-   ;Make shaded ranges
-   xp:=new((/24/),float)
-   yp:=new((/24/),double)
-   xp(0:11)=months
-   xp(12:23)=months(::-1)
-   yp(0:11)=MonthlyClimoEnsembleMeanStats(:,5)
-   yp(12:23)=MonthlyClimoEnsembleMeanStats(::-1,4)
-   pgres@gsFillColor      = "Red"
-   pgres@gsFillOpacityF        = 0.2  
-   dummy1 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
-   yp(0:11)=MonthlyClimoEnsembleMeanStats(:,2)
-   yp(12:23)=MonthlyClimoEnsembleMeanStats(::-1,1)   
-   pgres@gsFillColor      = "Blue"
-   dummy2 = gsn_add_polygon (wks,monthly_climatology_plot,xp,yp,pgres)
-   lineres=True
-   lineres@lgLineThicknesses=(/20.0, 20.0/)
-   lineres@lgLineColors=(/"blue","red"/)   
-   gres = True
-   gres@YPosPosition = 95.    ; expressed as %, 0->100, sets position of top border of legend 
-   gres@XPosPosition = 5      ; expressed as %, 0->100, sets position of left border of legend(Default = 5.)
-   textres = True
-   textres@lgLabels = (/"Dynamic ozone ensemble","Fixed ozone ensemble"/) 
-   monthly_climatology_plot = simple_legend(wks,monthly_climatology_plot,gres,lineres,textres)
-   draw(monthly_climatology_plot)  
    frame(wks)
 end if
 

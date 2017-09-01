@@ -428,5 +428,31 @@ function make_correlation_mask(AISMask,nAISMask,Xcor,time,bm1)
       CONVERGENCE:=add_lev_lat_lon_arrays(CONVERGENCE,lev,lat,lon)      
       PE:=add_lev_lat_lon_arrays(PE,lev,lat,lon)             
       return([/UQ,VQ,CONVERGENCE,PE/])
+   end
+ 
+   function load_no_ozone_lens_composites(MonStart,MonEnd,EnsNums,field)
+   begin
+      print("Loading "+field+"...")
+      nEns=dimsizes(EnsNums)
+      nMon=MonEnd-MonStart
+      monthlyData=new((/nMon,192,288,nEns,2/),double);Time, lat, lon, ensemble number, experiment (dynamic ozone, fixed ozone)    
+      do e=1,nEns
+         em1=e-1
+         elong=sprinti("%0.3i", EnsNums(em1))
+	 print("   ...ensemble "+elong+"...")
+	 fileArray=(/"ls /glade/p/cesmLE/CESM-CAM5-BGC-LE/atm/proc/tseries/monthly/"+field+"/b.e11.B20TRC5CNBDRD.f09_g16."+elong+".cam.h0."+field+".*-200512.nc",\
+	     "ls /glade/p/umit0006/FESD/fixedO3/atm/proc/tseries/monthly/"+field+"/b.e11.B20LE_fixedO3_"+elong+".cam.h0."+field+".*-200512.nc" /)
+         do exper=0,1
+	   f=systemfunc(fileArray(exper))
+	   in=addfiles(f,"r")
+	   nt = getfilevardimsizes(in[0],"time")
+	   ne = nt - 1
+	   ns = ne - nMon+1
+	   monthlyData(:,:,:,em1,exper)=in[:]->$field$(ns:ne,:,:)
+	   delete(f)
+	 end do
+      end do
+
+      return  monthlyData
  
    end   

@@ -105,8 +105,8 @@
 	          res_poly@gsFillOpacityF = 1.0
 	       end if
 	       res_poly@tfPolyDrawOrder = "PostDraw"
-	       PolyInds=ind(ZwallyBasinPolygonInds.eq.b)
-	       a(b-1)=gsn_add_polygon(wks,plot,\
+	       PolyInds:=ind(ZwallyBasinPolygonInds.eq.b) ;Issue: PolyInds is a missing number
+	       a(bm1)=gsn_add_polygon(wks,plot,\
 	        	   ZwallyBasinPolygonLons(PolyInds),\
 	        	   ZwallyBasinPolygonLats(PolyInds),\
 			   res_poly)
@@ -234,17 +234,24 @@
             res = get_default_res() 
 	    res@cnMinLevelValF       = minval              ; set min contour level
 	    res@cnMaxLevelValF       = maxval              ; set max contour level
-	    res@cnLevelSpacingF      = (maxval-minval)/20    ; set contour spacing
-	    res@cnLineLabelsOn    = False
+	    res@cnLevelSpacingF      = (maxval-minval)/20  ; set contour spacing
+	    res@cnLineLabelsOn    = False	    
 	    ;res@cnFillDrawOrder = "PostDraw"
 	    if (lineContours) then
 	       res@cnLinesOn = True
 	       res@cnFillOn = False
-	       res@cnLineThicknessF = 5
+	       res@cnLineThicknessF = 10	       
+	       if (isstring(Colors)) then;Assume a (multi-)colored line contour color scheme.  Crashes if color scheme not found!
+		  res@cnMonoLineColor = False
+		  res@cnLinePalette = Colors
+		  res@cnSpanLinePalette = True
+		  res@lbLabelBarOn = True
+	       end if
 	    else
 	       res@cnLinesOn = False
 	       res@cnFillOn = True
 	       res@cnFillPalette = Colors
+	       res@cnSpanFillPalette = True
 	    end if
 	   
 	    res@txFontHeightF     = 0.015
@@ -258,10 +265,9 @@
 	    else
 	       plot=gsn_csm_contour(wks,field,res)
 	    end if 
-	    if (lineContours) then
-	       plot = ColorNegDashZeroPosContour(plot,Colors(0),Colors(1),Colors(2)) ; if a linecontour, colors represent negative/0/positive contour colors
+	    if (lineContours.and.dimsizes(Colors).eq.3) then ;Colors is not a string, so assume a neg/zero/pos color scheme is wanted
+	          plot = ColorNegDashZeroPosContour(plot,Colors(0),Colors(1),Colors(2)) ; if a linecontour, colors represent negative/0/positive contour colors
 	    end if
-	    
 	    return plot
 	  end
 
