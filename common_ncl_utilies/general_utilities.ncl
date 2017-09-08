@@ -42,6 +42,16 @@ function get_AIS_mask()
       AISMask = fAISMask->Zwallybasins
       return AISMask
    end
+   
+;;;     
+function get_AIS_mask_grounded()
+   begin
+      fAISMask = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Medley_reconstructions/cesm_basins_area.nc","r")
+      AISMask = new((/32,192,288/),double)
+      AISMask(:,0:42,:) = fAISMask->basins_area
+      return AISMask
+   end
+   
 ;;;      
 function get_LandFrac()
    begin

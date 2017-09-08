@@ -4,8 +4,8 @@ load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utili
 
 LoadFreshData=False
 
-plot_climatological_annual_cycle=False
-plot_DJF_Annual_timeseries_difference=False
+plot_climatological_annual_cycle=True
+plot_DJF_Annual_timeseries_difference=True
 
 EnsNums=(/1,10,12,15,18,20,22,28/)
 nEns=dimsizes(EnsNums)
@@ -33,49 +33,104 @@ AISMask = get_AIS_mask()
 AISMaskBinary=where(AISMask.gt.0,1,0)
 nAISMask = toint(max(AISMask))
 
+AISMaskGrounded=get_AIS_mask_grounded()
+AISMaskGroundedBinary=where(AISMaskGrounded.gt.0,1,0)
+
 year2sec=31557600.
 m3ps_to_GtpYr=1. * year2sec *1000. / 1.e12;
 
-if (LoadFreshData) then
+if (LoadFreshData) then; Regenerate timeseries from raw ensemble data
 
-   PRECIP_Integrated_TS=new((/nMon,nEns,2/),double)
-
+   PRECIP_Integrated_TS                = new((/nMon,nEns,2/),double)
+   PRECIP_Integrated_TS_Grounded       = new((/nMon,nEns,2/),double)   
+   PRECIP_BasinIntegrated_TS           = new((/nMon,nEns,nAISMask,2/),double)
+   PRECIP_BasinIntegrated_TS_Grounded  = new((/nMon,nEns,nAISMask,2/),double)   
+   
+   ;Load ensemble monthly precipitation data, for all members of dynamic and fixed ozone ensembles.
+   ;Function load_no_ozone_lens_composites is in ../common_ncl_utilies/general_utilities.ncl
+   ;PRECIP dimension: time, lat, lon, ensemble #, experiment (dynamic ozone, no ozone)
    PRECIP=load_no_ozone_lens_composites(MonStart,MonEnd,EnsNums,"PRECC")+\
           load_no_ozone_lens_composites(MonStart,MonEnd,EnsNums,"PRECL")
+
+   ;dPRECIP_CESM_basin_pval = new((/nAISMask/),double)
+   ;dPRECIP_CESM_basin = new((/nAISMask/),double)
+   ;dPRECIP_CESM_mask=new(dimsizes(AISMask),"double")
+   ;dPRECIP_CESM_pval_mask=new(dimsizes(AISMask),"double")
+
+;      aveX=avg(Basin_integrated_dSNOWFALL_O3(:,:,b))
+;      varX=variance(Basin_integrated_dSNOWFALL_O3(:,:,b))
+;      aveY=avg(Basin_integrated_dSNOWFALL_NO3(:,:,b))
+;      varY=variance(Basin_integrated_dSNOWFALL_NO3(:,:,b))
+;      dPRECIP_CESM_basin(b)=(aveX-aveY)/aveX ;Relative change
+;      dPRECIP_CESM_basin_pval(b)=ttest(aveX,varX,sX,aveY,varY,sY,False,False)  
+;
+;      dPRECIP_CESM_mask=where(AISMask.eq.b,dPRECIP_CESM_basin(b),dPRECIP_CESM_mask)
+;      dPRECIP_CESM_pval_mask=where(AISMask.eq.b,dPRECIP_CESM_basin_pval(b),dPRECIP_CESM_pval_mask)
+
    do e=0,nEns-1
-      print("Calculating integrated time series for "+tostring(e))
+      print("Calculating integrated time series for "+tostring(e)+"...")
       do exper=0,1
-	 ;Calculate integrated time series
+	 ;Calculate integrated time series.
+	 ;Function calculate_integrated_timeseries is in ../common_ncl_utilies/general_utilities.ncl
 	 PRECIP_Integrated_TS(:,e,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,AISMaskBinary)
+	 PRECIP_Integrated_TS_Grounded(:,e,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,AISMaskGroundedBinary(27,:,:))
+	 do b = 0,nAISMask-1
+	    BasinMask=where(AISMask.eq.b+1,1,0)
+	    BasinMask_Grounded=where(AISMaskGrounded(b,:,:).gt.0.,1,0)
+	    PRECIP_BasinIntegrated_TS(:,e,b,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,BasinMask)	        
+	    PRECIP_BasinIntegrated_TS_Grounded(:,e,b,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,BasinMask_Grounded)
+	 end do
       end do
    end do
-
 
    print("Saving data...")
    system("rm -f "+OutputFileName)
    ncdf=addfile(OutputFileName ,"c")
    ncdf->PRECIP_Integrated_TS=PRECIP_Integrated_TS
-
-else
+   ncdf->PRECIP_BasinIntegrated_TS=PRECIP_BasinIntegrated_TS   
+   ncdf->PRECIP_Integrated_TS_Grounded=PRECIP_Integrated_TS_Grounded
+   ncdf->PRECIP_BasinIntegrated_TS_Grounded=PRECIP_BasinIntegrated_TS_Grounded  
+   
+else;Load previously-generated time series data
 
    print("Loading data...")
    ncdf=addfile(OutputFileName,"r")
    PRECIP_Integrated_TS=ncdf->PRECIP_Integrated_TS
-
+   PRECIP_BasinIntegrated_TS=ncdf->PRECIP_BasinIntegrated_TS
+   PRECIP_Integrated_TS_Grounded=ncdf->PRECIP_Integrated_TS_Grounded
+   PRECIP_BasinIntegrated_TS_Grounded=ncdf->PRECIP_BasinIntegrated_TS_Grounded  
+   
 end if
 
-PRECIP_Integrated_TS!0="time" ;just so month_to_season works
-PRECIP_Integrated_TS!1="lat" ;just so month_to_season works.  This is actually eEns.   
-PRECIP_Integrated_TS!2="lon" ;just so month_to_season works.  This is actually exper. 
+;;;CHOOSE EITHER GROUNDED OR WHOLE ICE SHEET time series to analyze
+;TS_Array=PRECIP_Integrated_TS
+;TS_Array_Basin=PRECIP_BasinIntegrated_TS
+TS_Array=PRECIP_Integrated_TS_Grounded
+TS_Array_Basin=PRECIP_BasinIntegrated_TS_Grounded
+
+TS_Array!0="time" ;just so month_to_season works
+TS_Array!1="lat" ;just so month_to_season works.  This is actually eEns.   
+TS_Array!2="lon" ;just so month_to_season works.  This is actually exper.
+
+TS_Array_Basin!0="time" ;just so month_to_season works
+TS_Array_Basin!2="lev" ;just so month_to_season works.  This is actually eEns.
+TS_Array_Basin!2="lat" ;just so month_to_season works.  This is actually basin.   
+TS_Array_Basin!3="lon" ;just so month_to_season works.  This is actually exper.
 
 PRECIP_Integrated_TS_Annually_Resolved=new((/nYear,nEns,2,2/),double); time, nEns, exper, season
-PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iDJF)=month_to_season(PRECIP_Integrated_TS,"DJF")
+PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iDJF)=month_to_season(TS_Array,"DJF")
 PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iDJF)=PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iDJF)*m3ps_to_GtpYr/4.
-PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iAnn)=(/month_to_annual(PRECIP_Integrated_TS,1)/) ;brackets omit metadata
+PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iAnn)=(/month_to_annual(TS_Array,1)/) ;brackets omit metadata
 PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iAnn)=PRECIP_Integrated_TS_Annually_Resolved(:,:,:,iAnn)*m3ps_to_GtpYr
 
+PRECIP_Integrated_TS_Annually_Resolved_Basin=new((/nYear,nEns,nAISMask,2,2/),double); time, nEns, basin, exper, season
+PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,:,:,iDJF)=month_to_season(TS_Array_Basin,"DJF")
+PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,:,:,iDJF)=PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,:,:,iDJF)*m3ps_to_GtpYr/4.
+PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,:,:,iAnn)=(/month_to_annual(TS_Array_Basin,1)/) ;brackets omit metadata
+PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,:,:,iAnn)=PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,:,:,iAnn)*m3ps_to_GtpYr
+
 SmoothPer=11
-SmoothPerMid=SmoothPer/2 ;Note integer division, which truncates decimal part.
+SmoothPerMid=SmoothPer/2 ;Note integer division, which truncates decimal remainder.
 
 PRECIP_Integrated_TS_Annually_Resolved_Mean         =dim_avg_n(PRECIP_Integrated_TS_Annually_Resolved,1);ensemble average, dimenions: time,exper,season
 PRECIP_Integrated_TS_Annually_Resolved_Mean_Smoothed=runave_n(PRECIP_Integrated_TS_Annually_Resolved_Mean,SmoothPer,0,0); times-smoothed, same dimensions as above
@@ -90,7 +145,6 @@ dPRECIP_Integrated_TS_Annually_Resolved_pval=new((/nYear,2/),double); time, seas
 tEmerged=new((/2/),integer)
 
 do s=0,1;iDJF,iANN
-  print("*********************************")
   ;Calculate running significance and smoothed time series (used for time series plots)
   tEmergedFound=False
   do t=SmoothPerMid,nYear-SmoothPerMid-1
@@ -115,17 +169,42 @@ do s=0,1;iDJF,iANN
      print("No emergence of significant difference found, stopping so you can figure things out.")
      exit
   end if
-  
-  ;Calculate total period significance and difference (used for scalar in-text statements
-  aveX=avg(PRECIP_Integrated_TS_Annually_Resolved(:,:,iO3,s))
+end do
+
+;Print out scalar diagnostics to terminal
+sX=nYear*nEns
+sY=sX
+do s=0,1;iDJF,iANN
+  print("*********************************")
+  aveX=avg     (PRECIP_Integrated_TS_Annually_Resolved(:,:,iO3,s))
   varX=variance(PRECIP_Integrated_TS_Annually_Resolved(:,:,iO3,s))
-  aveY=avg(PRECIP_Integrated_TS_Annually_Resolved(:,:,iNO3,s))
+  stderrX=stddev  (PRECIP_Integrated_TS_Annually_Resolved(:,:,iO3,s))/sqrt(sX)
+  aveY=avg     (PRECIP_Integrated_TS_Annually_Resolved(:,:,iNO3,s))
   varY=variance(PRECIP_Integrated_TS_Annually_Resolved(:,:,iNO3,s))
+  stderrY=stddev  (PRECIP_Integrated_TS_Annually_Resolved(:,:,iNO3,s))/sqrt(sY)
   pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False)
   print( "Average dynamic ozone "+PeriodName(s)+" mass flux="+tostring(aveX))
   print( "Average fixed ozone "+PeriodName(s)+" mass flux="  +tostring(aveY))
   print( "Mean "+PeriodName(s)+" ozone-forced snowfall change=" + tostring((aveX-aveY)))
   print( "Pval of "+PeriodName(s)+" ozone-forced snowfall change=" +tostring(pval))
+  stderr=sqrt(stderrX^2 + stderrY^2)
+  print( "Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)
+  do b = 0,nAISMask-1
+  print("   ********Basin"+tostring(b+1)+" values*************")  
+     aveX=avg     (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))
+     varX=variance(PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))
+     stderrX=stddev  (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))/sqrt(sX)
+     aveY=avg     (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))
+     varY=variance(PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))
+     stderrY=stddev  (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))/sqrt(sY)
+     pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False)
+     print( "   Average dynamic ozone "+PeriodName(s)+" mass flux="+tostring(aveX))
+     print( "   Average fixed ozone "+PeriodName(s)+" mass flux="  +tostring(aveY))
+     print( "   Mean "+PeriodName(s)+" ozone-forced snowfall change=" + tostring((aveX-aveY)))
+     print( "   Pval of "+PeriodName(s)+" ozone-forced snowfall change=" +tostring(pval))
+     stderr=sqrt(stderrX^2 + stderrY^2)
+     print( "   Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)     
+  end do
 
 end do
 print("*********************************")
@@ -143,7 +222,18 @@ NO3Range=max(PRECIP_Integrated_monthlyClimo_Mean(:,iNO3))-min(PRECIP_Integrated_
 RangeChange=(NO3Range-O3Range)/NO3Range
 print("Change in seasonal cycle range due to ozone depletion)="+tostring(RangeChange))
 
-;;;Plotting begins here;;;
+;Load ozone timeseries
+;ozoneFile="/glade/scratch/jfyke/ozone_data/ozone.nc"
+;f=addfile(ozoneFile ,"r")
+;ozoneTimeseries=f->
+
+
+
+                               ;;;Plotting below;;;
+			       
+			       
+			       
+			       
 
 wks_type=get_default_wks(); function in general_utilities.ncl
 

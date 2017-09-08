@@ -286,49 +286,21 @@ MonthlyClimoEnsembleMeanStats(:,5)=dim_avg_n( MonthlyClimo , 1 )+dim_stddev_n( M
 
 
 ;Load Brooke's reconstructed differences
-f=addfile("../input_data/Medley_reconstructions/final_recon_v1_cesm.nc","r")
-dPRECIP_Recon=new((/192,288/),double)
-dPRECIP_Recon_pval=new((/192,288/),double)
-
-tmp=lonPivot(f->rel_change_1986_2000(lat|:,lon|:),0.)
-tmp2=lonPivot(f->pval_1986_2000(lat|:,lon|:),0.)
-do lati=0,42
-   do loni=0,287
-      if (tmp(lati,loni).ge.-100.) then
-	 if (tmp(lati,loni).le.100.) then
-	    dPRECIP_Recon(lati,loni)=tmp(lati,loni)
-	    dPRECIP_Recon_pval(lati,loni)=tmp2(lati,loni)
-	 end if
-      end if
-   end do
-end do
-
-if (plot_basin_aggreggated_snowfall_change) then
-   ;Get CESM and reconstruction climatological accumulation changes on basin-scale
-   Basin_integrated_dSNOWFALL_O3  = new((/nYears,nEns,nAISMask/),double)
-   Basin_integrated_dSNOWFALL_NO3 = new((/nYears,nEns,nAISMask/),double)
-   dPRECIP_CESM_basin_pval = new((/nAISMask/),double)
-   dPRECIP_CESM_basin = new((/nAISMask/),double)
-   dPRECIP_CESM_mask=new(dimsizes(AISMask),"double")
-   dPRECIP_CESM_pval_mask=new(dimsizes(AISMask),"double")
-   do b = 0,nAISMask-1
-      print("***")
-      BasinMask=where(AISMask.eq.b+1,1,0)
-      do e = 0,nEns-1
-	 Basin_integrated_dSNOWFALL_O3(:,e,b)=calculate_integrated_timeseries(O3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,BasinMask)
-	 Basin_integrated_dSNOWFALL_NO3(:,e,b)=calculate_integrated_timeseries(NO3Data(:,:,:,e,iDJF,iPRECIP),LandFrac,LandArea,BasinMask)      
-      end do
-      aveX=avg(Basin_integrated_dSNOWFALL_O3(:,:,b))
-      varX=variance(Basin_integrated_dSNOWFALL_O3(:,:,b))
-      aveY=avg(Basin_integrated_dSNOWFALL_NO3(:,:,b))
-      varY=variance(Basin_integrated_dSNOWFALL_NO3(:,:,b))
-      dPRECIP_CESM_basin(b)=(aveX-aveY)/aveX ;Relative change
-      dPRECIP_CESM_basin_pval(b)=ttest(aveX,varX,sX,aveY,varY,sY,False,False)  
-
-      dPRECIP_CESM_mask=where(AISMask.eq.b,dPRECIP_CESM_basin(b),dPRECIP_CESM_mask)
-      dPRECIP_CESM_pval_mask=where(AISMask.eq.b,dPRECIP_CESM_basin_pval(b),dPRECIP_CESM_pval_mask)
-   end do
-end if
+    ;f=addfile("../input_data/Medley_reconstructions/final_recon_v1_cesm.nc","r")
+    ;dPRECIP_Recon=new((/192,288/),double)
+    ;dPRECIP_Recon_pval=new((/192,288/),double)
+    ;tmp=lonPivot(f->rel_change_1986_2000(lat|:,lon|:),0.)
+    ;tmp2=lonPivot(f->pval_1986_2000(lat|:,lon|:),0.)
+    ;do lati=0,42
+    ;   do loni=0,287
+    ;      if (tmp(lati,loni).ge.-100.) then
+    ;	 if (tmp(lati,loni).le.100.) then
+    ;	    dPRECIP_Recon(lati,loni)=tmp(lati,loni)
+    ;	    dPRECIP_Recon_pval(lati,loni)=tmp2(lati,loni)
+    ;	 end if
+    ;      end if
+    ;   end do
+    ;end do
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;:PLOTTING BEGINS HERE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
