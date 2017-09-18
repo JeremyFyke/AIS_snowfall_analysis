@@ -11,7 +11,7 @@ begin
    plot_dMoisture_dZ500_transport=0
    plot_non_annular_difference=0
    plot_dMoisture_plus_basin_correlation=0
-   plot_dz500_plus_basin_correlation=1
+   plot_dz500_plus_basin_correlation=0
    plot_dMoisture_plus_PE=0
    plot_evap_to_transport_ratio=0
    plot_spatial_correlation_CESM=0
@@ -70,7 +70,7 @@ begin
    do b = 1,nAISMask
       bm1=b-1
       BasinMask_RACMO=where(AISMask_RACMO.eq.b,1,0)
-      Basin_integrated_TS_RACMO(:,bm1)=calculate_integrated_timeseries(PRECIP_annual_RACMO,LandFrac_RACMO,LandArea_RACMO,BasinMask_RACMO)
+      Basin_integrated_TS_RACMO(:,bm1)=calculate_integrated_timeseries(PRECIP_annual_RACMO,LandArea_RACMO,LandFrac_RACMO*BasinMask_RACMO)
    end do
 
    ;Load ice core data, stack by basin
@@ -95,11 +95,11 @@ begin
       lon=in->lon
       SNOW_annual = (in->SNOW) * year2sec / 1000.    ;mm/s -> m/yr
       SNOW_annual=replace_mask_values(SNOW_annual,0.)
-      SNOW_AIS_integrated=calculate_integrated_timeseries(SNOW_annual,LandFrac,LandArea,AISMaskBinary)
+      SNOW_AIS_integrated=calculate_integrated_timeseries(SNOW_annual,LandArea,LandFrac*AISMaskBinary)
       SNOW_AIS_integrated=SNOW_AIS_integrated / 1.e9 ; integrated AIS PRECIP - m^3/yr -> kg/yr -> Gt/yr
       RAIN_annual = (in->RAIN) * year2sec / 1000.    ;mm/s -> m/yr
       RAIN_annual=replace_mask_values(RAIN_annual,0.)
-      RAIN_AIS_integrated=calculate_integrated_timeseries(RAIN_annual,LandFrac,LandArea,AISMaskBinary)
+      RAIN_AIS_integrated=calculate_integrated_timeseries(RAIN_annual,LandArea,LandFrac*AISMaskBinary)
       RAIN_AIS_integrated=RAIN_AIS_integrated / 1.e9 ; integrated AIS PRECIP - m^3/yr -> kg/yr -> Gt/yr
 
       PRECIP_annual=SNOW_annual+RAIN_annual
@@ -107,14 +107,14 @@ begin
       PRECIP_annual=where(PRECIP_annual.eq.0.,PRECIP_annual@_FillValue,PRECIP_annual)
       PRECIP_climatology=mask(dim_avg_n(PRECIP_annual,0),AISMaskBinary,1)
       
-      PRECIP_climatology=add_lev_lat_lon_arrays(PRECIP_climatology,lev,lat,lon)
+      PRECIP_climatology=alll(PRECIP_climatology,lev,lat,lon)
       PRECIP_variability=mask(dim_stddev_n(PRECIP_annual,0),AISMaskBinary,1)
-      PRECIP_variability=add_lev_lat_lon_arrays(PRECIP_variability,lev,lat,lon)
+      PRECIP_variability=alll(PRECIP_variability,lev,lat,lon)
       PRECIP_AIS_integrated=RAIN_AIS_integrated+SNOW_AIS_integrated
       PRECIP_AIS_integrated_avg=avg(PRECIP_AIS_integrated)
       PRECIP_AIS_integrated_std=stddev(PRECIP_AIS_integrated)
       PRECIP_CV=PRECIP_variability/PRECIP_climatology
-      PRECIP_CV=add_lev_lat_lon_arrays(PRECIP_CV,lev,lat,lon)
+      PRECIP_CV=alll(PRECIP_CV,lev,lat,lon)
       
       print("CV averaged from point-wise CVs="+wgt_areaave2(PRECIP_CV,Area,0))
       print("Climatological AIS integrated mean snow:")
@@ -163,8 +163,8 @@ begin
    psa1_eof=-(in->psa1_sst_regression_ann) ;
    lat_CVDP=in->lat
    lon_CVDP=in->lon
-   sam_eof=add_lev_lat_lon_arrays(sam_eof,lev,lat_CVDP,lon_CVDP)
-   psa1_eof=add_lev_lat_lon_arrays(psa1_eof,lev,lat_CVDP,lon_CVDP)
+   sam_eof=alll(sam_eof,lev,lat_CVDP,lon_CVDP)
+   psa1_eof=alll(psa1_eof,lev,lat_CVDP,lon_CVDP)
 
    ;Load basin accumulation time series
    in = addfile("compositing_work/output/AISAccumulationTimeSeries.nc","r")
@@ -222,34 +222,59 @@ begin
    print("***PAGES: Average number of total positive correlations per basin="+avg(out[0]))   
    print("***PAGES: Average number of significant positive correlations per basin="+avg(out[2]))
    print("***PAGES: Average number of total negative correlations per basin="+avg(out[1]))   
-   print("***PAGES: Average number of significant negative correlations per basin="+avg(out[3]))
+   print("***PAGES: Average number of significant negative correlations per basin="+avg(out[3]))   
+
+   Xcor_basin_by_basin_CESM_copy =Xcor_basin_by_basin_CESM
+   Rtest_basin_by_basin_CESM_copy=Rtest_basin_by_basin_CESM       
+   Xcor_basin_by_basin_RACMO_copy =Xcor_basin_by_basin_RACMO
+   Rtest_basin_by_basin_RACMO_copy=Rtest_basin_by_basin_RACMO
+   Xcor_basin_by_basin_PAGES_copy=Xcor_basin_by_basin_PAGES
+   Rtest_basin_by_basin_PAGES_copy=Rtest_basin_by_basin_PAGES
+   
+   do b=1,toint(nAISMask)
+      endm1=toint(nAISMask)-1
+      bm1=b-1
+      
+      Xcor_basin_by_basin_CESM_copy(bm1,bm1:endm1)=Xcor_basin_by_basin_CESM@_FillValue
+      Rtest_basin_by_basin_CESM_copy(bm1,bm1:endm1)=Rtest_basin_by_basin_CESM@_FillValue	     
+      
+      Xcor_basin_by_basin_RACMO_copy(bm1,bm1:endm1)=Xcor_basin_by_basin_RACMO@_FillValue
+      Rtest_basin_by_basin_RACMO_copy(bm1,bm1:endm1)=Rtest_basin_by_basin_RACMO@_FillValue
+      
+      Xcor_basin_by_basin_PAGES_copy(bm1,bm1:endm1)=Xcor_basin_by_basin_PAGES@_FillValue
+      Rtest_basin_by_basin_PAGES_copy(bm1,bm1:endm1)=Rtest_basin_by_basin_PAGES@_FillValue   
+         		  
+   end do
+   wks = gsn_open_wks (wks_type,"figs/RACMO_vs_CESM_correlation_scatter")
+   x=ndtooned(Xcor_basin_by_basin_CESM_copy)
+   y=ndtooned(Xcor_basin_by_basin_RACMO_copy)
+   test=regline(x,y)
+   rc =  regline_stats(x,y) ; linear regression coef
+   print(rc)
+    
+   res=True
+   res@xyMarkLineModes     = (/"Markers"/)  ; choose which have markers
+   res@xyMarkers           = 16                     ; choose type of marker 
+   res@xyMarkerColor       = "red"                  ; Marker color
+   res@tiYAxisString = "RACMO"
+   res@tiXAxisString = "CESM"   
+   
+   plot=gsn_csm_xy (wks,x,y,res)
+ 
+   print(test)
+   exit   
+   
    
    if (plot_matrix_of_CESM_interbasin_correlations.eq.1) then
-       Xcor_basin_by_basin_CESM_copy=Xcor_basin_by_basin_CESM
-       Rtest_basin_by_basin_CESM_copy=Rtest_basin_by_basin_CESM
-       do b=1,toint(nAISMask)
-          endm1=toint(nAISMask)-1
-          bm1=b-1
-	  Xcor_basin_by_basin_CESM_copy(bm1,bm1:endm1)=Xcor_basin_by_basin_CESM@_FillValue
-	  Rtest_basin_by_basin_CESM_copy(bm1,bm1:endm1)=Rtest_basin_by_basin_CESM@_FillValue	  
-       end do
        wks = gsn_open_wks (wks_type,"figs/CESM_inter_basin_correlation_matrix")            
        corr_mat_plot=plot_basin_correlation_matrix(Xcor_basin_by_basin_CESM_copy,wks)
-       significance_plot=plot_significance(Rtest_basin_by_basin_CESM_copy,wks) CONTINUE HERE
+       significance_plot=plot_significance(Rtest_basin_by_basin_CESM_copy,wks)
        overlay(corr_mat_plot,significance_plot)
        draw(corr_mat_plot)
        frame(wks)       
    end if
    
    if (plot_matrix_of_RACMO_interbasin_correlations.eq.1) then
-       Xcor_basin_by_basin_RACMO_copy=Xcor_basin_by_basin_RACMO
-       Rtest_basin_by_basin_RACMO_copy=Rtest_basin_by_basin_RACMO
-       do b=1,toint(nAISMask)
-          endm1=toint(nAISMask)-1
-          bm1=b-1
-	  Xcor_basin_by_basin_RACMO_copy(bm1,bm1:endm1)=Xcor_basin_by_basin_RACMO@_FillValue
-	  Rtest_basin_by_basin_RACMO_copy(bm1,bm1:endm1)=Rtest_basin_by_basin_RACMO@_FillValue	  
-       end do
        wks = gsn_open_wks (wks_type,"figs/RACMO_inter_basin_correlation_matrix")            
        corr_mat_plot=plot_basin_correlation_matrix(Xcor_basin_by_basin_RACMO_copy,wks)
        significance_plot=plot_significance(Rtest_basin_by_basin_RACMO_copy,wks)
@@ -258,16 +283,7 @@ begin
        frame(wks)       
    end if
    
-   
    if (plot_matrix_of_PAGES_interbasin_correlations.eq.1) then
-       Xcor_basin_by_basin_PAGES_copy=Xcor_basin_by_basin_PAGES
-       Rtest_basin_by_basin_PAGES_copy=Rtest_basin_by_basin_PAGES
-       do b=1,toint(nAISMask)
-          endm1=toint(nAISMask)-1
-          bm1=b-1
-	  Xcor_basin_by_basin_PAGES_copy(bm1,bm1:endm1)=Xcor_basin_by_basin_PAGES@_FillValue
-	  Rtest_basin_by_basin_PAGES_copy(bm1,bm1:endm1)=Rtest_basin_by_basin_PAGES@_FillValue	  
-       end do
        wks = gsn_open_wks (wks_type,"figs/PAGES_inter_basin_correlation_matrix")            
        corr_mat_plot=plot_basin_correlation_matrix(Xcor_basin_by_basin_PAGES_copy,wks)
        significance_plot=plot_significance(Rtest_basin_by_basin_PAGES_copy,wks)
@@ -279,7 +295,7 @@ begin
    if (plot_basin_overview.eq.1) then
        wks = gsn_open_wks (wks_type,"figs/basin_overview")
        ;Plot topography
-       Topog=add_lev_lat_lon_arrays(Topog,lev,lat,lon)
+       Topog=alll(Topog,lev,lat,lon)
        Topog@_FillValue=default_fillvalue(typeof(Topog))
        ;Topog=where(Topog.gt.1,Topog,Topog@_FillValue)
        Topog_plot=plot_field(Topog,0,4000,False,"rainbow",True,-60,wks)
@@ -390,13 +406,13 @@ begin
       
       UQ_VERT_INTEGRAL_diff=(UQ_VERT_INTEGRAL_mean_high-UQ_VERT_INTEGRAL_mean_low)
       VQ_VERT_INTEGRAL_diff=(VQ_VERT_INTEGRAL_mean_high-VQ_VERT_INTEGRAL_mean_low)
-      UQ_VERT_INTEGRAL_diff=add_lev_lat_lon_arrays(UQ_VERT_INTEGRAL_diff,lev,lat,lon)
-      VQ_VERT_INTEGRAL_diff=add_lev_lat_lon_arrays(VQ_VERT_INTEGRAL_diff,lev,lat,lon)
+      UQ_VERT_INTEGRAL_diff=alll(UQ_VERT_INTEGRAL_diff,lev,lat,lon)
+      VQ_VERT_INTEGRAL_diff=alll(VQ_VERT_INTEGRAL_diff,lev,lat,lon)
       
       CONVERGENCE_diff=CONVERGENCE_mean_high-CONVERGENCE_mean_low
       PE_diff=PE_mean_high-PE_mean_low
-      CONVERGENCE_diff=add_lev_lat_lon_arrays(CONVERGENCE_diff,lev,lat,lon)
-      PE_diff=add_lev_lat_lon_arrays(PE_diff,lev,lat,lon)      
+      CONVERGENCE_diff=alll(CONVERGENCE_diff,lev,lat,lon)
+      PE_diff=alll(PE_diff,lev,lat,lon)      
              
       ;Calculate z500
       Z500_diff =rm_single_dims (vinth2p (Z3_diff,hyam,hybm,(/500.0/),PS_mean_mean,1,P0/100.,1,True) )
@@ -409,16 +425,16 @@ begin
       BasinMask=new(dimsizes(AISMask),"integer")
       BasinMask@_FillValue=default_fillvalue(typeof(BasinMask))
       BasinMask=where(AISMask.eq.b,1,0);set basinmask to one where basin equals 1
-      BasinMask=add_lev_lat_lon_arrays(BasinMask,lev,lat,lon)
+      BasinMask=alll(BasinMask,lev,lat,lon)
       out:=make_correlation_mask(AISMask,nAISMask,Xcor_basin_by_basin_CESM,time,bm1)
-      CorrMask_CESM=add_lev_lat_lon_arrays(out[0],lev,lat,lon)
-      RtestMask_CESM=add_lev_lat_lon_arrays(out[1],lev,lat,lon)
+      CorrMask_CESM=alll(out[0],lev,lat,lon)
+      RtestMask_CESM=alll(out[1],lev,lat,lon)
       out:=make_correlation_mask(AISMask_RACMO,nAISMask,Xcor_basin_by_basin_RACMO,time_RACMO,bm1)
       CorrMask_RACMO=out[0]
       RtestMask_RACMO=out[1]
       out:=make_correlation_mask(AISMask,nAISMask,Xcor_basin_by_basin_PAGES,time_PAGES,bm1)
-      CorrMask_PAGES=add_lev_lat_lon_arrays(out[0],lev,lat,lon)
-      RtestMask_PAGES=add_lev_lat_lon_arrays(out[1],lev,lat,lon)    
+      CorrMask_PAGES=alll(out[0],lev,lat,lon)
+      RtestMask_PAGES=alll(out[1],lev,lat,lon)    
       
        ;;;;Various basin-specific plots!;;;;
 
@@ -564,9 +580,9 @@ begin
            
       if (plot_seasonal_cycle_difference.eq.1) then
       
-         Monthly_integrated_cycle_low=calculate_integrated_timeseries(PRECIPm_low,LandFrac,LandArea,BasinMask)
+         Monthly_integrated_cycle_low=calculate_integrated_timeseries(PRECIPm_low,LandArea,LandFrac*BasinMask)
 	 Monthly_integrated_cycle_low=Monthly_integrated_cycle_low / 1.e9 ; integrated PRECIP for basin - m^3/yr -> kg/yr -> Gt/yr
-         Monthly_integrated_cycle_high=calculate_integrated_timeseries(PRECIPm_high,LandFrac,LandArea,BasinMask)
+         Monthly_integrated_cycle_high=calculate_integrated_timeseries(PRECIPm_high,LandArea,LandFrac*BasinMask)
 	 Monthly_integrated_cycle_high=Monthly_integrated_cycle_high / 1.e9 ; integrated PRECIP for basin - m^3/yr -> kg/yr -> Gt/yr
 
          dMonthly_integrated_cycle=Monthly_integrated_cycle_high-Monthly_integrated_cycle_low

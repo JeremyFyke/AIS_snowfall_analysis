@@ -1,5 +1,5 @@
-load "/glade/u/home/jfyke/liwg/AIS_snowfall_analysis/fyke_analysis/local_utilies.ncl"
-load "/glade/u/home/jfyke/liwg/AIS_snowfall_analysis/fyke_analysis/compositing_work/composite_utilities.ncl"
+load "/glade/u/home/jfyke/liwg/AIS_snowfall_analysis/common_ncl_utilies/general_utilities.ncl"
+load "/glade/u/home/jfyke/liwg/AIS_snowfall_analysis/common_ncl_utilies/composite_utilities.ncl"
 
 year2sec=31557600.
 
@@ -51,7 +51,7 @@ print("Calculating integrated annual PRECIP for time series analysis and composi
       bm1=b-1
       BasinMask=where(AISMask.eq.b,1,0)
      ; calculate yearly totals
-      Basin_integrated_TS(:,bm1)=calculate_integrated_timeseries(PRECIP_annual,LandFrac,LandArea,BasinMask)
+      Basin_integrated_TS(:,bm1)=calculate_integrated_timeseries(PRECIP_annual,LandArea,LandFrac*BasinMask)
       Basin_integrated_TS(:,bm1)=Basin_integrated_TS(:,bm1) / 1.e9
       statx=stat_dispersion(Basin_integrated_TS(:,bm1),False)
       Basin_integrated_TS_avg(bm1)=statx(0)
@@ -84,6 +84,8 @@ print("Calculating integrated annual PRECIP for time series analysis and composi
    save_timeseries(Basin_integrated_TS,"BasinAccumulationTimeSeries.nc")
    save_timeseries(AIS_integrated_TS,"AISAccumulationTimeSeries.nc")
    save_timeseries(time,"TimeSeriestime.nc")
+
+   exit
 
    indt_high= NewList("lifo")
    indt_low= NewList("lifo")    

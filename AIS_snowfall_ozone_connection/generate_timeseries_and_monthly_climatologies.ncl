@@ -4,13 +4,13 @@ load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utili
 
 LoadFreshData=False
 
-plot_climatological_annual_cycle=True
+plot_climatological_annual_cycle=False
 plot_DJF_Annual_timeseries_difference=True
 
 EnsNums=(/1,10,12,15,18,20,22,28/)
 nEns=dimsizes(EnsNums)
 
-YearStart=1986
+YearStart=1955
 YearEnd=2005
 MonStart=YearStart*12
 MonEnd=YearEnd*12+12
@@ -30,11 +30,18 @@ PeriodName=(/"DJF", "Annual"/)
 LandArea = get_LandArea() 
 LandFrac = get_LandFrac()
 AISMask = get_AIS_mask()
-AISMaskBinary=where(AISMask.gt.0,1,0)
+AISMaskBinary=where(AISMask.gt.0.,1,0)
 nAISMask = toint(max(AISMask))
 
+TotalArea=sum(LandArea*LandFrac*AISMaskBinary)/1.e12
+print("TotalArea according to CESM masks (including shelves)="+TotalArea+" million km^2")
+
 AISMaskGrounded=get_AIS_mask_grounded()
-AISMaskGroundedBinary=where(AISMaskGrounded.gt.0,1,0)
+AISMaskGroundedBinary=where(AISMaskGrounded.gt.0.,1.,0.)
+
+TotalAreaGrounded=sum(AISMaskGrounded(27,:,:)+AISMaskGrounded(28,:,:))/1.e12
+print("TotalAreaGrounded according to Brooke masks="+TotalAreaGrounded+" million km^2")
+
 
 year2sec=31557600.
 m3ps_to_GtpYr=1. * year2sec *1000. / 1.e12;
@@ -44,7 +51,7 @@ if (LoadFreshData) then; Regenerate timeseries from raw ensemble data
    PRECIP_Integrated_TS                = new((/nMon,nEns,2/),double)
    PRECIP_Integrated_TS_Grounded       = new((/nMon,nEns,2/),double)   
    PRECIP_BasinIntegrated_TS           = new((/nMon,nEns,nAISMask,2/),double)
-   PRECIP_BasinIntegrated_TS_Grounded  = new((/nMon,nEns,nAISMask,2/),double)   
+   PRECIP_BasinIntegrated_TS_Grounded  = new((/nMon,nEns,nAISMask,2/),double)  
    
    ;Load ensemble monthly precipitation data, for all members of dynamic and fixed ozone ensembles.
    ;Function load_no_ozone_lens_composites is in ../common_ncl_utilies/general_utilities.ncl
@@ -71,18 +78,21 @@ if (LoadFreshData) then; Regenerate timeseries from raw ensemble data
       print("Calculating integrated time series for "+tostring(e)+"...")
       do exper=0,1
 	 ;Calculate integrated time series.
+	 Mask=new((/192,288/),double)
+	 Mask(:,:)=1.0
 	 ;Function calculate_integrated_timeseries is in ../common_ncl_utilies/general_utilities.ncl
-	 PRECIP_Integrated_TS(:,e,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,AISMaskBinary)
-	 PRECIP_Integrated_TS_Grounded(:,e,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,AISMaskGroundedBinary(27,:,:))
+	 GroundedArea=dim_sum_n(AISMaskGrounded(27:28,:,:),0)
+	 PRECIP_Integrated_TS(:,e,exper)         =calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandArea,LandFrac*AISMaskBinary)
+	 PRECIP_Integrated_TS_Grounded(:,e,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),GroundedArea,Mask)
+
 	 do b = 0,nAISMask-1
-	    BasinMask=where(AISMask.eq.b+1,1,0)
-	    BasinMask_Grounded=where(AISMaskGrounded(b,:,:).gt.0.,1,0)
-	    PRECIP_BasinIntegrated_TS(:,e,b,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,BasinMask)	        
-	    PRECIP_BasinIntegrated_TS_Grounded(:,e,b,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandFrac,LandArea,BasinMask_Grounded)
+	    BasinMask=where(AISMask.eq.b+1,1.,0.)
+	    PRECIP_BasinIntegrated_TS(:,e,b,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),LandArea,BasinMask*LandFrac)
+	    PRECIP_BasinIntegrated_TS_Grounded(:,e,b,exper)=calculate_integrated_timeseries(PRECIP(:,:,:,e,exper),AISMaskGrounded(b,:,:),Mask)
 	 end do
       end do
    end do
-
+   
    print("Saving data...")
    system("rm -f "+OutputFileName)
    ncdf=addfile(OutputFileName ,"c")
@@ -105,8 +115,9 @@ end if
 ;;;CHOOSE EITHER GROUNDED OR WHOLE ICE SHEET time series to analyze
 ;TS_Array=PRECIP_Integrated_TS
 ;TS_Array_Basin=PRECIP_BasinIntegrated_TS
-TS_Array=PRECIP_Integrated_TS_Grounded
-TS_Array_Basin=PRECIP_BasinIntegrated_TS_Grounded
+nEns=4
+TS_Array=PRECIP_Integrated_TS_Grounded(:,0:nEns-1,:)
+TS_Array_Basin=PRECIP_BasinIntegrated_TS_Grounded(:,0:nEns-1,:,:)
 
 TS_Array!0="time" ;just so month_to_season works
 TS_Array!1="lat" ;just so month_to_season works.  This is actually eEns.   
@@ -167,7 +178,7 @@ do s=0,1;iDJF,iANN
      print("Year emerged="+tostring(tEmerged(s)))
   else
      print("No emergence of significant difference found, stopping so you can figure things out.")
-     exit
+     ;exit
   end if
 end do
 
@@ -190,7 +201,7 @@ do s=0,1;iDJF,iANN
   stderr=sqrt(stderrX^2 + stderrY^2)
   print( "Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)
   do b = 0,nAISMask-1
-  print("   ********Basin"+tostring(b+1)+" values*************")  
+     ;print("   ********Basin"+tostring(b+1)+" values*************")  
      aveX=avg     (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))
      varX=variance(PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))
      stderrX=stddev  (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))/sqrt(sX)
@@ -198,12 +209,12 @@ do s=0,1;iDJF,iANN
      varY=variance(PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))
      stderrY=stddev  (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))/sqrt(sY)
      pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False)
-     print( "   Average dynamic ozone "+PeriodName(s)+" mass flux="+tostring(aveX))
-     print( "   Average fixed ozone "+PeriodName(s)+" mass flux="  +tostring(aveY))
-     print( "   Mean "+PeriodName(s)+" ozone-forced snowfall change=" + tostring((aveX-aveY)))
-     print( "   Pval of "+PeriodName(s)+" ozone-forced snowfall change=" +tostring(pval))
-     stderr=sqrt(stderrX^2 + stderrY^2)
-     print( "   Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)     
+     ;print( "   Average dynamic ozone "+PeriodName(s)+" mass flux="+tostring(aveX))
+     ;print( "   Average fixed ozone "+PeriodName(s)+" mass flux="  +tostring(aveY))
+     ;print( "   Mean "+PeriodName(s)+" ozone-forced snowfall change=" + tostring((aveX-aveY)))
+     ;print( "   Pval of "+PeriodName(s)+" ozone-forced snowfall change=" +tostring(pval))
+     ;stderr=sqrt(stderrX^2 + stderrY^2)
+     ;print( "   Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)   
   end do
 
 end do
@@ -226,8 +237,6 @@ print("Change in seasonal cycle range due to ozone depletion)="+tostring(RangeCh
 ;ozoneFile="/glade/scratch/jfyke/ozone_data/ozone.nc"
 ;f=addfile(ozoneFile ,"r")
 ;ozoneTimeseries=f->
-
-
 
                                ;;;Plotting below;;;
 			       
@@ -299,7 +308,7 @@ if (plot_DJF_Annual_timeseries_difference) then
    
    fname=(/"dPRECIP_DJF_O_TS","dPRECIP_Ann_O_TS"/)
    do s=0,1
-      wks = gsn_open_wks (wks_type,"figs/"+fname(s));Plot timeseries and ensemble spread of integrated precip
+      wks = gsn_open_wks (wks_type,"figs/"+fname(s)+"_"+tostring(nEns));Plot timeseries and ensemble spread of integrated precip
       res := True
       res@trXMinF=min(Years)
       res@trXMaxF=max(Years)
@@ -326,7 +335,7 @@ if (plot_DJF_Annual_timeseries_difference) then
       res@xyLineThicknesses := (/60.0/)
       ts:=tEmerged(iDJF)
       te:=nYear-1
-      running_average_plot_significant_diff = gsn_csm_xy(wks,Years(ts:te)-0.5,dPRECIP_Integrated_TS_Annually_Resolved_Mean_Smoothed(ts:te,s),res)
+      ;running_average_plot_significant_diff = gsn_csm_xy(wks,Years(ts:te)-0.5,dPRECIP_Integrated_TS_Annually_Resolved_Mean_Smoothed(ts:te,s),res)
       
       lineres := True
       textres := True
@@ -344,7 +353,7 @@ if (plot_DJF_Annual_timeseries_difference) then
       else
          res@xyLineThicknesses := (/60.0/)
 	 ts:=tEmerged(iAnn)
-	 running_average_plot_significant_diff = gsn_csm_xy(wks,Years(ts:te)-0.5,dPRECIP_Integrated_TS_Annually_Resolved_Mean_Smoothed(ts:te,s),res)         
+	 ;running_average_plot_significant_diff = gsn_csm_xy(wks,Years(ts:te)-0.5,dPRECIP_Integrated_TS_Annually_Resolved_Mean_Smoothed(ts:te,s),res)         
 	 ;Add in observational mass loss estimate graphic
          ;Hard-code simple estimate of recent AIS mass loss (Gt/yr, Forsberg et al., 2017, 10.1007/s10712-016-9398-7) for plot comparisons
 	 ForsbergObsStats=new((/3,4/),double)
@@ -365,10 +374,9 @@ if (plot_DJF_Annual_timeseries_difference) then
       end if
       te:=nYear-1
       res@xyLineColors:="black"
-      running_average_plot_significant_diff = gsn_csm_xy(wks,Years(ts:te)-0.5,dPRECIP_Integrated_TS_Annually_Resolved_Mean_Smoothed(ts:te,s),res)         
       base_plot = simple_legend(wks,base_plot,gres,lineres,textres)
       overlay(base_plot,running_average_plot)
-      overlay(base_plot,running_average_plot_significant_diff)
+      ;overlay(base_plot,running_average_plot_significant_diff)
       draw(base_plot)
       frame(wks)
    

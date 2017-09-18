@@ -48,6 +48,7 @@ function get_AIS_mask_grounded()
    begin
       fAISMask = addfile("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Medley_reconstructions/cesm_basins_area.nc","r")
       AISMask = new((/32,192,288/),double)
+      AISMask(:,:,:)=0.0
       AISMask(:,0:42,:) = fAISMask->basins_area
       return AISMask
    end
@@ -110,7 +111,7 @@ begin
    return fieldout
 end
 ;;;
-function calculate_integrated_timeseries(Field,LandFrac,LandArea,Mask)
+function calculate_integrated_timeseries(Field,Area,Mask)
 local i,nt,dimsize
 begin
    ; calculate integrated time series
@@ -118,7 +119,7 @@ begin
    nt=dimsize(0)
    TS=new(nt,"double")
    do i = 0, nt-1,1 
-      TS(i) = sum(Field(i,:,:)*LandFrac*LandArea*Mask)
+      TS(i) = sum(Field(i,:,:)*Area*Mask)
    end do
    return TS
 end
