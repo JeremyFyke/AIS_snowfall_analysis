@@ -5,12 +5,12 @@ load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utili
 LoadFreshData=False
 
 plot_climatological_annual_cycle=False
-plot_DJF_Annual_timeseries_difference=True
+plot_DJF_Annual_timeseries_difference=False
 
 EnsNums=(/1,10,12,15,18,20,22,28/)
 nEns=dimsizes(EnsNums)
 
-YearStart=1955
+YearStart=1986
 YearEnd=2005
 MonStart=YearStart*12
 MonEnd=YearEnd*12+12
@@ -41,7 +41,6 @@ AISMaskGroundedBinary=where(AISMaskGrounded.gt.0.,1.,0.)
 
 TotalAreaGrounded=sum(AISMaskGrounded(27,:,:)+AISMaskGrounded(28,:,:))/1.e12
 print("TotalAreaGrounded according to Brooke masks="+TotalAreaGrounded+" million km^2")
-
 
 year2sec=31557600.
 m3ps_to_GtpYr=1. * year2sec *1000. / 1.e12;
@@ -100,7 +99,7 @@ end if
 ;;;CHOOSE EITHER GROUNDED OR WHOLE ICE SHEET time series to analyze
 ;TS_Array=PRECIP_Integrated_TS
 ;TS_Array_Basin=PRECIP_BasinIntegrated_TS
-nEns=4
+
 TS_Array=PRECIP_Integrated_TS_Grounded(:,0:nEns-1,:)
 TS_Array_Basin=PRECIP_BasinIntegrated_TS_Grounded(:,0:nEns-1,:,:)
 
@@ -170,6 +169,14 @@ end do
 ;Print out scalar diagnostics to terminal
 sX=nYear*nEns
 sY=sX
+
+BasinDiff    =new((/2,nAISMask/),double)
+BasinDiff!0="averaging_period"
+BasinDiff!1="basin"
+BasinDiffpval=new((/2,nAISMask/),double)
+BasinDiffpval!0="averaging_period"
+BasinDiffpval!1="basin"
+
 do s=0,1;iDJF,iANN
   print("*********************************")
   aveX=avg     (PRECIP_Integrated_TS_Annually_Resolved(:,:,iO3,s))
@@ -185,6 +192,7 @@ do s=0,1;iDJF,iANN
   print( "Pval of "+PeriodName(s)+" ozone-forced snowfall change=" +tostring(pval))
   stderr=sqrt(stderrX^2 + stderrY^2)
   print( "Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)
+  
   do b = 0,nAISMask-1
      ;print("   ********Basin"+tostring(b+1)+" values*************")  
      aveX=avg     (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iO3,s))
@@ -193,16 +201,26 @@ do s=0,1;iDJF,iANN
      aveY=avg     (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))
      varY=variance(PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))
      stderrY=stddev  (PRECIP_Integrated_TS_Annually_Resolved_Basin(:,:,b,iNO3,s))/sqrt(sY)
-     pval=ttest(aveX,varX,sX,aveY,varY,sY,False,False)
+     BasinDiff(s,b)=aveX-aveY
+     BasinDiffpval(s,b)=ttest(aveX,varX,sX,aveY,varY,sY,False,False)
      ;print( "   Average dynamic ozone "+PeriodName(s)+" mass flux="+tostring(aveX))
      ;print( "   Average fixed ozone "+PeriodName(s)+" mass flux="  +tostring(aveY))
-     ;print( "   Mean "+PeriodName(s)+" ozone-forced snowfall change=" + tostring((aveX-aveY)))
-     ;print( "   Pval of "+PeriodName(s)+" ozone-forced snowfall change=" +tostring(pval))
+     ;print( "   Mean "+PeriodName(s)+" ozone-forced snowfall change="    + tostring(BasinDiff(s,b)))
+     ;print( "   Pval of "+PeriodName(s)+" ozone-forced snowfall change=" + tostring(BasinDiffpval(s,b)))
      ;stderr=sqrt(stderrX^2 + stderrY^2)
      ;print( "   Standard error of the mean of "+PeriodName(s)+" ozone-forced snowfall change=" + stderr)   
   end do
-
 end do
+
+BasinOutputFileName="/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Ozone_analysis_basin_changes.nc"
+print("Saving data...")
+system("rm -f "+BasinOutputFileName)
+ncdf=addfile(BasinOutputFileName ,"c")
+ncdf->BasinDiff=BasinDiff
+ncdf->BasinDiffpval=BasinDiffpval
+
+exit
+
 print("*********************************")
 
 ;Generate integrated seasonal cycles

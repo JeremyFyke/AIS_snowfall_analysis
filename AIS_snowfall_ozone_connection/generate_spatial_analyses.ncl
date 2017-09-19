@@ -3,8 +3,8 @@ load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/general_utilit
 load "/glade/p/cesm/liwg/AIS_snowfall_analysis/common_ncl_utilies/plotting_utilities.ncl"
 
 LoadFreshData=False
-plot_Annual_climatology_difference=False
-plot_DJF_climatology_difference=True
+plot_Annual_climatology_difference=True
+plot_DJF_climatology_difference=False
 
 year2sec=31557600.
 LandArea = get_LandArea() 
@@ -34,12 +34,19 @@ nMon=MonEnd-MonStart
 Years=fspan(1,nYear,nYear)+YearEnd-nYear
 OutputFileName="/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Ozone_analysis_spatial"+tostring(YearStart)+"_"+tostring(YearEnd)+".nc"
 
+BasinDotLocations=readAsciiTable("/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/basingeog_Jeremy.csv",3,"float",1)
+BasinDotLocations:=BasinDotLocations(0:26,1:2)
+
 iO3=0
 iNO3=1
 
 iDJF=0
 iAnn=1
 PeriodName=(/"DJF", "Annual"/)
+BasinOutputFileName="/glade/p/cesm/liwg/AIS_snowfall_analysis/input_data/Ozone_analysis_basin_changes.nc"
+ncdf=addfile(BasinOutputFileName ,"r")
+BasinDiff=ncdf->BasinDiff
+BasinDiffpval=ncdf->BasinDiffpval
 
 if (LoadFreshData) then;
    PRECIP=load_no_ozone_lens_data(MonStart,MonEnd,EnsNums,2,"PRECC")+\
@@ -161,6 +168,50 @@ if (plot_Annual_climatology_difference) then
    wks = gsn_open_wks (wks_type,"figs/dPRECIP_REL_Ann")
    PRECIP_plot = plot_field(alll(dPRECIP_Annually_Resolved_Climo_Ensemble(:,:,iAnn),lev,lat,lon),-.08,.08,False,"MPL_BrBG",True,latbound,wks)
    PRECIP_plot = plot_basin_polygons(ZwallyBasinPolygonData,PRECIP_plot,wks,nAISMask,-9999)
+
+   ;Plot basin absolute changes
+   gres=True
+   gres@gsMarkerIndex=16
+   bubble=new(27,"graphic")
+   do b=0,nAISMask-1
+      gres@gsMarkerSizeF=0.01*abs(BasinDiff(iAnn,b))
+      if (BasinDiff(iAnn,b).gt.0.) then
+         gres@gsMarkerColor="blue"
+      else
+         gres@gsMarkerColor="brown"
+      end if
+      bubble(b)=gsn_add_polymarker(wks,PRECIP_plot,BasinDotLocations(b,0),BasinDotLocations(b,1),gres) 
+   end do
+   
+   ;Then plot basin change legend
+   pmres=True
+   pmres@gsMarkerColor="black"
+   pmres@gsMarkerIndex=16   
+   
+   txres=True
+   txres@txFontHeightF =  0.014 
+   txres@txJust        = "CenterLeft"
+   
+
+   size=1.
+   ypos=0.28
+   xo=0.1
+   pmres@gsMarkerSizeF=0.01*size
+   gsn_polymarker_ndc(wks,0.08+xo,ypos,pmres)
+   gsn_text_ndc(wks,sprintf("%1.0f",size)+" Gt/yr",0.09+xo,ypos,txres)
+
+   size=3.
+   ypos=0.25
+   pmres@gsMarkerSizeF=0.01*size
+   gsn_polymarker_ndc(wks,0.08+xo,ypos,pmres) 
+   gsn_text_ndc(wks,sprintf("%1.0f",size)+" Gt/yr",0.1+xo,ypos,txres)   
+
+   size=6.
+   ypos=0.2   
+   pmres@gsMarkerSizeF=0.01*size 
+   gsn_polymarker_ndc(wks,0.08+xo,ypos,pmres)   
+   gsn_text_ndc(wks,sprintf("%1.0f",size)+" Gt/yr",0.115+xo,ypos,txres)    
+   
    draw(PRECIP_plot)
    frame(wks)    
 end if
