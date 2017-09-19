@@ -441,12 +441,16 @@ function make_correlation_mask(AISMask,nAISMask,Xcor,time,bm1)
       return([/UQ,VQ,CONVERGENCE,PE/])
    end
  
-   function load_no_ozone_lens_composites(MonStart,MonEnd,EnsNums,field)
+   function load_no_ozone_lens_data(MonStart,MonEnd,EnsNums,dims,field)
    begin
       print("Loading "+field+"...")
       nEns=dimsizes(EnsNums)
       nMon=MonEnd-MonStart
-      monthlyData=new((/nMon,192,288,nEns,2/),double);Time, lat, lon, ensemble number, experiment (dynamic ozone, fixed ozone)    
+      if (dims.eq.2) then
+         monthlyData=new((/nMon,192,288,nEns,2/),double);Time, lat, lon, ensemble number, experiment (dynamic ozone, fixed ozone) 
+      else 
+         monthlyData=new((/nMon,30,192,288,nEns,2/),double);Time, lev, lat, lon, ensemble number, experiment (dynamic ozone, fixed ozone) 
+      end if
       do e=1,nEns
          em1=e-1
          elong=sprinti("%0.3i", EnsNums(em1))
@@ -459,7 +463,11 @@ function make_correlation_mask(AISMask,nAISMask,Xcor,time,bm1)
 	   nt = getfilevardimsizes(in[0],"time")
 	   ne = nt - 1
 	   ns = ne - nMon+1
-	   monthlyData(:,:,:,em1,exper)=in[:]->$field$(ns:ne,:,:)
+	   if (dims.eq.2) then
+	      monthlyData(:,:,:,em1,exper)=in[:]->$field$(ns:ne,:,:)
+	   else 
+	      monthlyData(:,:,:,:,em1,exper)=in[:]->$field$(ns:ne,:,:,:)
+	   end if
 	   delete(f)
 	 end do
       end do

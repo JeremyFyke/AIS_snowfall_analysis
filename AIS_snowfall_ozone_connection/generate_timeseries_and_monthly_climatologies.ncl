@@ -54,25 +54,10 @@ if (LoadFreshData) then; Regenerate timeseries from raw ensemble data
    PRECIP_BasinIntegrated_TS_Grounded  = new((/nMon,nEns,nAISMask,2/),double)  
    
    ;Load ensemble monthly precipitation data, for all members of dynamic and fixed ozone ensembles.
-   ;Function load_no_ozone_lens_composites is in ../common_ncl_utilies/general_utilities.ncl
+   ;Function load_no_ozone_lens_data is in ../common_ncl_utilies/general_utilities.ncl
    ;PRECIP dimension: time, lat, lon, ensemble #, experiment (dynamic ozone, no ozone)
-   PRECIP=load_no_ozone_lens_composites(MonStart,MonEnd,EnsNums,"PRECC")+\
-          load_no_ozone_lens_composites(MonStart,MonEnd,EnsNums,"PRECL")
-
-   ;dPRECIP_CESM_basin_pval = new((/nAISMask/),double)
-   ;dPRECIP_CESM_basin = new((/nAISMask/),double)
-   ;dPRECIP_CESM_mask=new(dimsizes(AISMask),"double")
-   ;dPRECIP_CESM_pval_mask=new(dimsizes(AISMask),"double")
-
-;      aveX=avg(Basin_integrated_dSNOWFALL_O3(:,:,b))
-;      varX=variance(Basin_integrated_dSNOWFALL_O3(:,:,b))
-;      aveY=avg(Basin_integrated_dSNOWFALL_NO3(:,:,b))
-;      varY=variance(Basin_integrated_dSNOWFALL_NO3(:,:,b))
-;      dPRECIP_CESM_basin(b)=(aveX-aveY)/aveX ;Relative change
-;      dPRECIP_CESM_basin_pval(b)=ttest(aveX,varX,sX,aveY,varY,sY,False,False)  
-;
-;      dPRECIP_CESM_mask=where(AISMask.eq.b,dPRECIP_CESM_basin(b),dPRECIP_CESM_mask)
-;      dPRECIP_CESM_pval_mask=where(AISMask.eq.b,dPRECIP_CESM_basin_pval(b),dPRECIP_CESM_pval_mask)
+   PRECIP=load_no_ozone_lens_data(MonStart,MonEnd,EnsNums,2,"PRECC")+\
+          load_no_ozone_lens_data(MonStart,MonEnd,EnsNums,2,"PRECL")
 
    do e=0,nEns-1
       print("Calculating integrated time series for "+tostring(e)+"...")
